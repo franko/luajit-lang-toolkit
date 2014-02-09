@@ -21,18 +21,6 @@ local function func_expr(body, params, vararg, line)
     return build("FunctionExpression", { body = body, params = params, vararg = vararg, line = line })
 end
 
-function AST.use_stmt(ast, name, line)
-    local defs = ast.probe(name)
-    if defs then
-        local node = build("LocalDeclaration", { names = { }, expressions = { }, line = line })
-        local mod = { vars = defs, id = ident(name), vids = node.names, exps = node.expressions }
-        ast:fscope_register_use(mod)
-        return node
-    else
-        error(string.format("invalid module name: \"%s\" in line %d", name, line))
-    end
-end
-
 function AST.expr_function(ast, args, body, proto, line)
    return func_expr(body, args, proto.varargs, line)
 end
