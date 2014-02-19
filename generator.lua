@@ -277,6 +277,7 @@ function ExpressionRule:FunctionExpression(node, dest)
    if not self.ctx.explret then
       self.ctx:op_ret0()
    end
+   self.ctx:close()
 
    self.ctx = self.ctx.outer
    self.ctx.freereg = free
@@ -705,6 +706,7 @@ function StatementRule:FunctionDeclaration(node)
    if not self.ctx.explret then
       self.ctx:op_ret0()
    end
+   self.ctx:close()
 
    self.ctx = self.ctx.outer
    self.ctx.freereg = free
@@ -847,6 +849,7 @@ function StatementRule:Chunk(tree, name)
    if not self.ctx.explret then
       self.ctx:op_ret0()
    end
+   self.ctx:close()
 end
 
 local function dispatch(self, lookup, node, ...)
@@ -858,9 +861,6 @@ local function dispatch(self, lookup, node, ...)
    end
    if not lookup[node.kind] then
       error("no handler for "..node.kind)
-   end
-   if node.line then
-      self.ctx:line(node.line)
    end
    return lookup[node.kind](self, node, ...)
 end
@@ -919,7 +919,8 @@ local function generate(tree, name)
    end
 
    function self:emit(node, ...)
-      return dispatch(self, StatementRule, node, ...)
+      dispatch(self, StatementRule, node, ...)
+      if node.line then self.ctx:line(node.line) end
    end
 
    -- Emit the code to evaluate "node" and perform a conditional

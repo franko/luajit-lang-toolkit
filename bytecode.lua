@@ -331,8 +331,9 @@ function Proto.new(flags, outer)
       actvars = { };
       freereg   = 0;
       currline  = 1;
-      firstline = 1;
-      numlines  = 1;
+      lastline  = 1;
+      firstline = nil;
+      numlines  = 0;
       framesize = 0;
       explret = false;
    }, Proto)
@@ -367,6 +368,9 @@ function Proto.__index:leave()
    local scope = assert(getmetatable(self.actvars), "cannot leave main scope")
    self.freereg = scope.freereg
    self.actvars = scope.__index
+end
+function Proto.__index:close()
+   self.numlines = self.firstline and self.lastline - self.firstline or 0
 end
 function Proto.__index:child(flags)
    self.flags = bit.bor(self.flags, Proto.CHILD)
@@ -408,10 +412,13 @@ function Proto.__index:const(val)
    return self.kcache[val].idx
 end
 function Proto.__index:line(ln)
-   self.currline = ln
-   if ln > self.currline then
-      self.numlines = ln
+   if not self.firstline or ln < self.firstline then
+      self.firstline = ln
    end
+   if ln > self.lastline then
+      self.lastline = ln
+   end
+   self.currline = ln
 end
 function Proto.__index:emit(op, a, b, c)
    --print(("Ins:%s %s %s %s"):format(BC[op], a, b, c))
