@@ -737,7 +737,11 @@ function StatementRule:RepeatStatement(node)
 end
 function StatementRule:BreakStatement()
    if self.exit then
-      return self.ctx:jump(self.exit, self.exit_reg)
+      -- The following call will generate either a JMP instruction or an UCLO instruction
+      -- with jump as appropriate.
+      self.ctx:close_block_uvals(self.exit_reg, self.exit)
+      -- The following is set to -1 to indicate that the current lexical block was closed.
+      self.savereg[#self.savereg] = -1
    else
       error("no loop to break")
    end
@@ -832,6 +836,8 @@ function StatementRule:ReturnStatement(node)
    if self.ctx:is_root_scope() then
       self.ctx.explret = true
    end
+   -- The following is set to -1 to indicate that the current lexical block was closed.
+   self.savereg[#self.savereg] = -1
 end
 
 function StatementRule:Chunk(tree, name)
@@ -874,7 +880,11 @@ local function generate(tree, name)
    function self:block_leave(exit)
       local free = self.savereg[#self.savereg]
       self.savereg[#self.savereg] = nil
-      self.ctx:close_block_uvals(free, exit)
+      -- If "free" is negative the block was already closed by a "break" or "return"
+      -- instruction. In this case the close_block_uvals is not needed.
+      if free >= 0 then
+         self.ctx:close_block_uvals(free, exit)
+      end
       self.ctx:leave()
    end
 
