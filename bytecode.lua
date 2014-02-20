@@ -28,6 +28,7 @@ local ffi  = require 'ffi'
 local util = require 'util'
 
 local typeof = getmetatable
+local max = math.max
 
 local function enum(t)
    for i=0,#t do t[t[i]] = i end
@@ -64,6 +65,25 @@ local BC_MODE = {
    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1,
    1, 0, 0, 0, 2, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2, 2, 1, 2, 2, 1, 2, 1,
    1, 1, 1, 1, 1, 1, 1,
+}
+
+-- Information about which operand is a destination register.
+-- 0: no operand is a destination
+-- 1: first operand A only is a destination register
+-- 2: first two operands, A and B, are destination registers
+-- -1: destination registers are A, ..., A+B-2 (B is a literal short number)
+local BC_WRITE = {
+   [0] = 0, 0, 0, 0, 0, 0, 0,0,
+   0, 0, 0, 0, 1, 1, 0, 0, 1, -- ISTC, ISFC, MOV takes a "dest" register
+   1, 1, 1, 1, 1, 1, 1, 1, 1, -- NOT, UNM, LEN + all the arithmetic operations
+   1, 1, 1, 1, 1, 1, 1, 1, -- from SUBVN to DIVVV
+   1, 1, 1, 1, 1, 1, 1, 1, 2, -- from MODVV to KNIL
+   1, 0, 0, 0, 0, 0, 1, 1, 1, -- from UGET to TDUP
+   1, 0, 1, 1, 1, 0, 0, 0, -- from GGET ti TSETB
+   -1, -1, -1, 0, 0, 0, 0, -1, -- from TSEM to VARG
+   0, 0, 0, 0, 0, 0, 0, 0, 0, -- from ISNEXT to the end
+   0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0,
 }
 
 local VKNIL   = 0
@@ -243,6 +263,23 @@ function Ins.__index:write(buf)
    end
 end
 
+-- Check the operands of an instruction and increase the framesize of the Proto
+-- ("self" argument) if needed.
+local function ins_framesize_check(self, op, a, b, c)
+   local spec = BC_WRITE[op]
+   local reg
+   if spec == 1 then -- The first operand is a destination register.
+      reg = a
+   elseif spec == 2 then -- The first two operands are destination registers.
+      reg = max(a, b)
+   elseif spec < 0 then -- Destination registers are A, ..., A + B - 2.
+      if b > 1 then
+         reg = a + (b - 2)
+      end
+   end
+   if reg then self.framesize = max(self.framesize, reg + 1) end
+end
+
 KObj = { }
 KObj.__index = { }
 function KObj.new(v)
@@ -343,16 +380,7 @@ function Proto.__index:nextreg(num)
    num = num or 1
    local reg = self.freereg
    self.freereg = self.freereg + num
-   if self.freereg >= self.framesize then
-      self.framesize = self.freereg
-   end
    return reg
-end
-function Proto.__index:setreg(reg)
-   self.freereg = reg
-   if self.freereg >= self.framesize then
-      self.framesize = self.freereg
-   end
 end
 function Proto.__index:enter()
    local outer = self.actvars
@@ -422,6 +450,7 @@ function Proto.__index:line(ln)
 end
 function Proto.__index:emit(op, a, b, c)
    --print(("Ins:%s %s %s %s"):format(BC[op], a, b, c))
+   ins_framesize_check(self, op, a, b, c)
    local ins = Ins.new(op, a, b, c)
    self.code[#self.code + 1] = ins
    self.lninfo[#self.lninfo + 1] = self.currline

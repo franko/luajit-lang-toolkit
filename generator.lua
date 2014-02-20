@@ -114,7 +114,7 @@ function ExpressionRule:Table(node, dest)
    local free
    if dest then
       free = self.ctx.freereg
-      if dest + 1 > free then self.ctx:setreg(dest + 1) end
+      self.ctx.freereg = dest + 1
    else
       dest = self.ctx:nextreg()
       free = self.ctx.freereg
@@ -169,7 +169,7 @@ function ExpressionRule:ConcatenateExpression(node, dest)
    local free = self.ctx.freereg
    for i = 0, #node.terms - 1 do
       self:expr_emit(node.terms[i + 1], free + i)
-      self.ctx:setreg(free + i + 1)
+      self.ctx.freereg = free + i + 1
    end
    self.ctx.freereg = free
    dest = dest or self.ctx:nextreg()
@@ -293,11 +293,10 @@ local function emit_call_expression(self, node, dest, want, tail, use_self)
 
    if use_self then
       local obj = self:expr_emit(node.receiver)
-      self.ctx:setreg(base + 1)
       self.ctx:op_move(base + 1, obj)
       local method = self.ctx:const(node.method.name)
       self.ctx:op_tget(base, obj, 'S', method)
-      self.ctx:nextreg()
+      self.ctx.freereg = base + 2
    else
       self:expr_emit(node.callee, base)
       self.ctx:nextreg()
@@ -606,7 +605,7 @@ function StatementRule:LocalDeclaration(node)
          local w = (i == nexps and slots or 1)
          local dest = base + (i - 1)
          self:expr_emit(node.expressions[i], dest, w)
-         self.ctx:setreg(dest + w)
+         self.ctx.freereg = dest + w
          slots = slots - w
       else
          self:expr_emit(node.expressions[i], nil, 0)
@@ -758,15 +757,15 @@ function StatementRule:ForStatement(node)
    local name = init.id.name
 
    self:expr_emit(init.value, base, 1)
-   self.ctx:setreg(base + 1)
+   self.ctx.freereg = base + 1
    self:expr_emit(node.last, base + 1, 1)
-   self.ctx:setreg(base + 2)
+   self.ctx.freereg = base + 2
    if node.step then
       self:expr_emit(node.step, base + 2, 1)
    else
       self.ctx:op_load(base + 2, 1)
    end
-   self.ctx:setreg(base + 3)
+   self.ctx.freereg = base + 3
    local loop = self.ctx:op_fori(base)
    local save_exit, save_exit_reg = self:loop_enter(exit, free)
    self.ctx:newvar(name)
@@ -794,7 +793,7 @@ function StatementRule:ForInStatement(node)
    for i=1, #vars do
       local name = vars[i].name
       self.ctx:newvar(name, iter + i - 1)
-      self.ctx:setreg(iter + i)
+      self.ctx.freereg = iter + i
    end
 
    local ltop = self.ctx:here(util.genid())
