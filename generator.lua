@@ -84,11 +84,15 @@ end
 
 function ExpressionRule:Identifier(node, dest, want)
    want = want or 0
-   local info, uval = self.ctx:lookup(node.name)
+   local name = node.name
+   local info, uval = self.ctx:lookup(name)
    if info then
       if uval then
          dest = dest or self.ctx:nextreg()
-         self.ctx:op_uget(dest, node.name)
+         -- Ensure variable is marked as upvalue in proto in take
+         -- the upvalue index.
+         local uv = self.ctx:upval(name)
+         self.ctx:op_uget(dest, uv)
       else
          local var = self.ctx:lookup(node.name)
          dest = dest or var.idx
@@ -352,8 +356,10 @@ end
 function LHSExpressionRule:Identifier(node)
    local info, uval = self.ctx:lookup(node.name)
    if uval then
-      self.ctx:upval(node.name)
-      return {tag = 'upval', name = node.name}
+      -- Ensure variable is marked as upvalue in proto and take
+      -- upvalue index.
+      local uv = self.ctx:upval(node.name)
+      return {tag = 'upval', uv = uv}
    elseif info then
       return {tag = 'local', target = info.idx}
    else
@@ -659,7 +665,7 @@ function StatementRule:AssignmentExpression(node)
    elseif slots == 1 then
       if lhs[i].tag == 'upval' then
          local tag, expr = self:expr_emit_tagged(node.right[i], EXPR_EMIT_VSNP)
-         self.ctx:op_uset(lhs[i].name, tag, expr)
+         self.ctx:op_uset(lhs[i].uv, tag, expr)
          nvars = nvars - 1
       elseif lhs[i].tag == 'local' then
          self:expr_emit(node.right[i], lhs[i].target)
@@ -893,7 +899,7 @@ local function generate(tree, name)
          assert(lhs.key_type ~= 'P', "invalid assignment instruction")
          self.ctx:op_tset(lhs.target, lhs.key_type, lhs.key, expr)
       elseif lhs.tag == 'upval' then
-         self.ctx:op_uset(lhs.name, 'V', expr)
+         self.ctx:op_uset(lhs.uv, 'V', expr)
       elseif lhs.tag == 'local' then
          local dest = lhs.target
          if dest ~= expr then

@@ -806,14 +806,12 @@ end
 function Proto.__index:op_uclo(base, jump)
    return self:emit(BC.UCLO, base, jump)
 end
-function Proto.__index:op_uset(name, vtag, val)
+function Proto.__index:op_uset(uv, vtag, val)
    local ins = BC['USET' .. vtag]
-   local slot = self:upval(name)
-   self:emit(ins, slot, val)
+   self:emit(ins, uv, val)
 end
-function Proto.__index:op_uget(dest, name)
-   local slot = self:upval(name)
-   return self:emit(BC.UGET, dest, slot)
+function Proto.__index:op_uget(dest, uv)
+   return self:emit(BC.UGET, dest, uv)
 end
 function Proto.__index:close_block_uvals(reg, exit)
    -- the condition on reg ensure that UCLO is emitted only if
