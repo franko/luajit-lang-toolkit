@@ -743,7 +743,7 @@ function StatementRule:BreakStatement()
    if self.exit then
       -- The following call will generate either a JMP instruction or an UCLO instruction
       -- with jump as appropriate.
-      self.ctx:close_block_uvals(self.exit_reg, self.exit)
+      self.ctx:close_block(self.exit_reg, self.exit)
       self.ctx.scope.uvclosed = true
    else
       error("no loop to break")
@@ -876,7 +876,7 @@ local function generate(tree, name)
    end
 
    function self:block_leave(exit)
-      self.ctx:close_block_uvals(self.ctx.scope.basereg, exit)
+      self.ctx:close_block(self.ctx.scope.basereg, exit)
       self.ctx:leave()
    end
 

@@ -813,7 +813,10 @@ end
 function Proto.__index:op_uget(dest, uv)
    return self:emit(BC.UGET, dest, uv)
 end
-function Proto.__index:close_block_uvals(reg, exit)
+-- Generate the UCLO + JMP instruction at the end of a block.
+-- The UCLO is generated only if there are open upvalues. The "exit"
+-- parameter is optional. If omitted there will be no JMP instruction.
+function Proto.__index:close_block(reg, exit)
    -- the condition on reg ensure that UCLO is emitted only if
    -- local variables were declared in the block
    local block_uclo = (reg < self.freereg) and not self:is_root_scope()
