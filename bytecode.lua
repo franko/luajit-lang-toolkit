@@ -335,7 +335,7 @@ function Proto.new(flags, outer)
       freereg   = 0;
       currline  = 1;
       lastline  = 1;
-      firstline = nil;
+      firstline = 1;
       numlines  = 0;
       framesize = 0;
       explret = false;
@@ -380,8 +380,9 @@ function Proto.__index:leave()
    self.scope   = self.scope.outer
    self.freereg = self:getbase()
 end
-function Proto.__index:close()
-   self.numlines = self.firstline and self.lastline - self.firstline or 0
+function Proto.__index:set_line(firstline, lastline)
+   self.firstline = firstline
+   self.numlines = lastline - firstline
 end
 function Proto.__index:child(flags)
    self.flags = bit.bor(self.flags, Proto.CHILD)
@@ -423,12 +424,6 @@ function Proto.__index:const(val)
    return self.kcache[val].idx
 end
 function Proto.__index:line(ln)
-   if not self.firstline or ln < self.firstline then
-      self.firstline = ln
-   end
-   if ln > self.lastline then
-      self.lastline = ln
-   end
    self.currline = ln
 end
 function Proto.__index:emit(op, a, b, c)

@@ -279,6 +279,7 @@ function ExpressionRule:FunctionExpression(node, dest)
    end
    self:emit(node.body)
    self:close_proto()
+   self.ctx:set_line(node.firstline, node.lastline)
 
    self.ctx = self.ctx.outer
    self.ctx.freereg = free
@@ -709,6 +710,7 @@ function StatementRule:FunctionDeclaration(node)
    end
    self:emit(node.body)
    self:close_proto()
+   self.ctx:set_line(node.firstline, node.lastline)
 
    self.ctx = self.ctx.outer
    self.ctx.freereg = free
@@ -1006,10 +1008,11 @@ local function generate(tree, name)
          self.ctx:close_uvals()
          self.ctx:op_ret0()
       end
-      self.ctx:close()
    end
 
    self:emit(tree)
+   self.ctx:set_line(tree.firstline, tree.lastline)
+
    return self.dump:pack()
 end
 

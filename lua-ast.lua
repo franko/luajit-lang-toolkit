@@ -6,41 +6,42 @@ end
 
 local AST = { }
 
-local function func_decl(id, body, params, vararg, locald, line)
+local function func_decl(id, body, params, vararg, locald, firstline, lastline)
     return build("FunctionDeclaration", {
         id         = id,
         body       = body,
         params     = params,
         vararg     = vararg,
         locald     = locald,
-        line       = line
+        firstline  = firstline,
+        lastline   = lastline,
     })
 end
 
-local function func_expr(body, params, vararg, line)
-    return build("FunctionExpression", { body = body, params = params, vararg = vararg, line = line })
+local function func_expr(body, params, vararg, firstline, lastline)
+    return build("FunctionExpression", { body = body, params = params, vararg = vararg, firstline = firstline, lastline = lastline })
 end
 
-function AST.expr_function(ast, args, body, proto, line)
-   return func_expr(body, args, proto.varargs, line)
+function AST.expr_function(ast, args, body, proto)
+   return func_expr(body, args, proto.varargs, proto.firstline, proto.lastline)
 end
 
-function AST.local_function_decl(ast, name, args, body, proto, line)
+function AST.local_function_decl(ast, name, args, body, proto)
     local id = ast:var_declare(name)
-    return func_decl(id, body, args, proto.varargs, true, line)
+    return func_decl(id, body, args, proto.varargs, true, proto.firstline, proto.lastline)
 end
 
-function AST.function_decl(ast, path, args, body, proto, line)
-    local fn = func_expr(body, args, proto.varargs, line)
+function AST.function_decl(ast, path, args, body, proto)
+    local fn = func_expr(body, args, proto.varargs, proto.firstline, proto.lastline)
     return build("AssignmentExpression", { left = { path }, right = { fn }, line = line })
 end
 
-function AST.chunk(ast, body, line)
-    return build("Chunk", { body = body, line = line })
+function AST.chunk(ast, body, firstline, lastline)
+    return build("Chunk", { body = body, firstline = firstline, lastline = lastline })
 end
 
-function AST.block_stmt(ast, body, line)
-    return build("BlockStatement", { body = body, line = line })
+function AST.block_stmt(ast, body, firstline, lastline)
+    return build("BlockStatement", { body = body, firstline = firstline, lastline = lastline })
 end
 
 function AST.local_decl(ast, vlist, exps, line)
