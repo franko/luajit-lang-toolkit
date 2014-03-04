@@ -86,8 +86,8 @@ def expected_bytecode(name, fullname):
 			yield s, m.group(2)
 
 def write_diff(a, b, a_name, b_name):
-	fna = ".out-%s.txt" % a_name
-	fnb = ".out-%s.txt" % b_name
+	fna = "tests/log/%s.txt" % a_name
+	fnb = "tests/log/%s.%s.txt" % (a_name, b_name)
 	af = open(fna, "w")
 	bf = open(fnb, "w")
 	af.write(a)
