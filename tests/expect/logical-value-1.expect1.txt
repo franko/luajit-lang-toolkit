@@ -1,0 +1,118 @@
+-- BYTECODE -- "logical-value-1.lua":1-3
+0001    ISLT     0   1
+0002    JMP      2 => 0005
+0003    KPRI     2   1
+0004    JMP      3 => 0006
+0005 => ADDVV    2   0   1
+0006 => RET1     2   2
+
+-- BYTECODE -- "logical-value-1.lua":5-7
+0001    ISLT     0   1
+0002    JMP      3 => 0005
+0003    KPRI     3   1
+0004    JMP      4 => 0009
+0005 => MOV      3   2
+0006    MOV      4   0
+0007    MOV      5   1
+0008    CALL     3   2   3
+0009 => RET1     3   2
+
+-- BYTECODE -- "logical-value-1.lua":9-11
+0001    ISLT     0   1
+0002    JMP      2 => 0005
+0003    KPRI     2   1
+0004    JMP      3 => 0010
+0005 => ISEQV    0   1
+0006    JMP      2 => 0009
+0007    KPRI     2   1
+0008    JMP      3 => 0010
+0009 => KPRI     2   2
+0010 => RET1     2   2
+
+-- BYTECODE -- "logical-value-1.lua":13-15
+0001    ISGE     0   1
+0002    JMP      2 => 0005
+0003    KPRI     2   2
+0004    JMP      3 => 0006
+0005 => SUBVV    2   0   1
+0006 => RET1     2   2
+
+-- BYTECODE -- "logical-value-1.lua":17-19
+0001    ISGE     0   1
+0002    JMP      2 => 0005
+0003    KPRI     2   2
+0004    JMP      3 => 0010
+0005 => ISEQV    0   1
+0006    JMP      2 => 0009
+0007    KPRI     2   1
+0008    JMP      3 => 0010
+0009 => KPRI     2   2
+0010 => RET1     2   2
+
+-- BYTECODE -- "logical-value-1.lua":21-21
+0001    SUBVV    2   0   1
+0002    RET1     2   2
+
+-- BYTECODE -- "logical-value-1.lua":0-28
+0001    FNEW     0   0      ; "logical-value-1.lua":1
+0002    FNEW     1   1      ; "logical-value-1.lua":5
+0003    FNEW     2   2      ; "logical-value-1.lua":9
+0004    FNEW     3   3      ; "logical-value-1.lua":13
+0005    FNEW     4   4      ; "logical-value-1.lua":17
+0006    FNEW     5   5      ; "logical-value-1.lua":21
+0007    KSHORT   6   3
+0008    KSHORT   7   7
+0009    GGET     8   6      ; "print"
+0010    MOV      9   0
+0011    MOV     10   6
+0012    MOV     11   7
+0013    CALL     9   2   3
+0014    MOV     10   0
+0015    MOV     11   7
+0016    MOV     12   6
+0017    CALL    10   0   3
+0018    CALLM    8   1   1
+0019    GGET     8   6      ; "print"
+0020    MOV      9   1
+0021    MOV     10   6
+0022    MOV     11   7
+0023    MOV     12   5
+0024    CALL     9   2   4
+0025    MOV     10   1
+0026    MOV     11   7
+0027    MOV     12   6
+0028    MOV     13   5
+0029    CALL    10   0   4
+0030    CALLM    8   1   1
+0031    GGET     8   6      ; "print"
+0032    MOV      9   2
+0033    MOV     10   6
+0034    MOV     11   7
+0035    CALL     9   2   3
+0036    MOV     10   2
+0037    MOV     11   7
+0038    MOV     12   6
+0039    CALL    10   0   3
+0040    CALLM    8   1   1
+0041    GGET     8   6      ; "print"
+0042    MOV      9   3
+0043    MOV     10   6
+0044    MOV     11   7
+0045    CALL     9   2   3
+0046    MOV     10   3
+0047    MOV     11   7
+0048    MOV     12   6
+0049    CALL    10   0   3
+0050    CALLM    8   1   1
+0051    GGET     8   6      ; "print"
+0052    MOV      9   4
+0053    MOV     10   6
+0054    MOV     11   7
+0055    CALL     9   2   3
+0056    MOV     10   4
+0057    MOV     11   7
+0058    MOV     12   6
+0059    CALL    10   0   3
+0060    CALLM    8   1   1
+0061    RET0     0   1
+
