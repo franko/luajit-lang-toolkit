@@ -34,5 +34,7 @@ if not filename then print_usage_msg() end
 -- Compute the bytecode string for the given filename.
 local luacode = compile.file(filename, options)
 
-local fn = assert(loadstring(luacode))
-fn()
+if luacode then
+    local fn = assert(loadstring(luacode))
+    fn()
+end

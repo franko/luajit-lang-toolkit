@@ -14,6 +14,7 @@ local function compile(reader, filename, options)
         local jbc = require("jit.bc")
         local fn = assert(loadstring(luacode))
         jbc.dump(fn, nil, true)
+        return
     end
 
     return luacode
