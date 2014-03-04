@@ -3,4 +3,4 @@ local function foo(a, b)
 end
 
 local x, y = 7, 3
-print(foo(x, y))
+print(foo(x, y), foo(y, x))
