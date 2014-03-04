@@ -7,7 +7,7 @@
 0006 => NOT      2   2
 0007    RET1     2   2
 
--- BYTECODE -- "logical-tests-4b.lua":0-8
+-- BYTECODE -- "logical-tests-4b.lua":0-7
 0001    FNEW     0   0      ; "logical-tests-4b.lua":1
 0002    KSHORT   1   7
 0003    KSHORT   2   3
