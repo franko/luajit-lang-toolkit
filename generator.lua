@@ -672,7 +672,6 @@ function StatementRule:BreakStatement()
       -- The following call will generate either a JMP instruction or an UCLO instruction
       -- with jump as appropriate.
       self.ctx:close_block(self.exit_reg, self.exit)
-      self.ctx.scope.uvclosed = true
    else
       error("no loop to break")
    end
@@ -769,7 +768,6 @@ function StatementRule:ReturnStatement(node)
    if self.ctx:is_root_scope() then
       self.ctx.explret = true
    end
-   self.ctx.scope.uvclosed = true
 end
 
 function StatementRule:Chunk(tree, name)

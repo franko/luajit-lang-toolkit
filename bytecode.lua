@@ -331,6 +331,7 @@ function Proto.new(flags, outer)
       scope  = {
          actvars = { };
          basereg = 0;
+         need_uclo = false;
       };
       freereg   = 0;
       currline  = 1;
@@ -363,10 +364,10 @@ end
 function Proto.__index:enter()
    local outer = self.scope
    self.scope = {
-      actvars = { };
-      basereg = self.freereg;
-      uvclosed = false;
-      outer   = outer;
+      actvars   = { };
+      basereg   = self.freereg;
+      need_uclo = false;
+      outer     = outer;
    }
    return self.scope
 end
@@ -601,7 +602,7 @@ function Proto.__index:upval(name)
          upval.outer_uv = self.outer:upval(name)
       end
 
-      proto.need_close = true
+      proto.scope.need_uclo = true
 
       self.upvals[name] = upval
       upval.idx = #self.upvals
@@ -641,7 +642,7 @@ function Proto.__index:jump(name, freereg)
    if self.labels[name] then
       -- backward jump
       local offs = self.labels[name]
-      if self.need_close then
+      if self.scope.need_uclo then
          return self:emit(BC.UCLO, freereg, offs - #self.code)
       else
          return self:emit(BC.JMP, freereg, offs - #self.code)
@@ -812,11 +813,7 @@ end
 -- The UCLO is generated only if there are open upvalues. The "exit"
 -- parameter is optional. If omitted there will be no JMP instruction.
 function Proto.__index:close_block(reg, exit)
-   -- the condition on reg ensure that UCLO is emitted only if
-   -- local variables were declared in the block
-   local block_uclo = (reg < self.freereg) and not self:is_root_scope()
-
-   if self.need_close and block_uclo and not self.scope.uvclosed then
+   if self.scope.need_uclo then
       if exit then
          assert(not self.labels[name], "expected forward jump")
          self:enable_jump(exit)
@@ -824,7 +821,7 @@ function Proto.__index:close_block(reg, exit)
       else
          self:emit(BC.UCLO, reg, 0)
       end
-      self.scope.uvclosed = true
+      self.scope.need_uclo = false
    else
       if exit then
          assert(not self.labels[name], "expected forward jump")
@@ -834,7 +831,7 @@ function Proto.__index:close_block(reg, exit)
    end
 end
 function Proto.__index:close_uvals()
-   if self.need_close then
+   if self.scope.need_uclo then
       self:emit(BC.UCLO, 0, 0)
    end
 end
