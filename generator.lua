@@ -12,6 +12,8 @@
 local bc   = require('bytecode')
 local util = require('util')
 
+local BC = bc.BC
+
 -- comparison operators with corresponding instruction.
 -- the boolean value indicate if the operands should be swapped.
 local cmpop = {
@@ -129,35 +131,82 @@ function MultiExprRule:Vararg(node, want)
    return true, false -- Multiple results, no tail call.
 end
 
+local function expr_isk(node)
+   if node.kind == "Literal" then
+      local t = type(node.value)
+      return (t == "string" or t == "number" or t == "boolean" or t == "nil")
+   else
+      return false
+   end
+end
+
+local function emit_tdup(self, dest, ins)
+   local kidx, t = self.ctx:new_table_template()
+   ins:rewrite(BC.TDUP, dest, kidx)
+   return t
+end
+
 function ExpressionRule:Table(node, dest)
    local free = self.ctx.freereg
-   self.ctx:op_tnew(dest)
+   local ins = self.ctx:op_tnew(free, 0)
    self.ctx:nextreg()
+   local t
    local vtop = self.ctx.freereg
+   local narray, nhash = 0, 0
+   local zeroarr = 0
    for k = 1, #node.array_entries do
-      local ktag, kval
-      if k < 256 then
-         ktag, kval = 'B', k
+      local expr = node.array_entries[k]
+      if expr_isk(expr) then
+         if not t then t = emit_tdup(self, free, ins) end
+         t.array[k] = expr.value
+         narray = k + 1
       else
-         ktag, kval = 'V', self.ctx:nextreg()
-         self.ctx:op_load(kval, k)
+         local ktag, kval
+         if k < 256 then
+            ktag, kval = 'B', k
+         else
+            ktag, kval = 'V', self.ctx:nextreg()
+            self.ctx:op_load(kval, k)
+         end
+         local v = self:expr_toanyreg(expr)
+         self.ctx:op_tset(free, ktag, kval, v)
+         self.ctx.freereg = vtop
       end
-      local v = self:expr_toanyreg(node.array_entries[k])
-      self.ctx:op_tset(dest, ktag, kval, v)
-      self.ctx.freereg = vtop
    end
 
    for i = 1, #node.hash_keys do
       local key, value = node.hash_keys[i], node.hash_values[i]
-      local ktag, kval = self:expr_toanyreg_tagged(key, EXPR_EMIT_VSB)
-      local v = self:expr_toanyreg(value)
-      self.ctx:op_tset(dest, ktag, kval, v)
-      self.ctx.freereg = vtop
+      if expr_isk(key) and key.value ~= nil and expr_isk(value) then
+         local kval, vval = key.value, value.value
+         if type(kval) == "number" and kval == 0 then
+            if not t then t = emit_tdup(self, free, ins) end
+            t.array[kval] = vval
+            narray = math.max(narray, 1)
+            zeroarr = 1
+         else
+            nhash = nhash + 1
+            if not t then t = emit_tdup(self, free, ins) end
+            t.hash_keys[nhash] = kval
+            t.hash_values[nhash] = vval
+         end
+      else
+         local ktag, kval = self:expr_toanyreg_tagged(key, EXPR_EMIT_VSB)
+         local v = self:expr_toanyreg(value)
+         self.ctx:op_tset(free, ktag, kval, v)
+         self.ctx.freereg = vtop
+      end
    end
 
-   if free ~= dest then
-      self.ctx:op_move(dest, free)
+   if t then
+      t.narray, t.nhash = narray, nhash
+   else
+      local na = #node.array_entries + zeroarr
+      local nh = #node.hash_keys - zeroarr
+      local sz = ins.tnewsize(na > 0 and na or nil, nh)
+      ins:rewrite(BC.TNEW, free, sz)
    end
+
+   mov_toreg(self.ctx, dest, free)
 
    self.ctx.freereg = free
 end

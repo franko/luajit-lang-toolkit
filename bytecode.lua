@@ -72,9 +72,12 @@ local VKTRUE  = 2
 
 local NO_JMP = bit.bnot(0)
 
+-- Type codes for the GC constants of a prototype. Plus length for strings.
 local KOBJ = enum {
    [0] = "CHILD", "TAB", "I64", "U64", "COMPLEX", "STR",
 }
+
+-- Type codes for the keys/values of a constant table.
 local KTAB = enum {
    [0] = "NIL", "FALSE", "TRUE", "INT", "NUM", "STR",
 }
@@ -223,6 +226,9 @@ function Ins.new(op, a, b, c)
       c or 0;
    }, Ins)
 end
+function Ins.__index:rewrite(op, a, b, c)
+   self[1], self[2], self[3], self[4] = op, a or 0, b or 0, c or 0
+end
 function Ins.__index:write(buf)
    local op, a = self[1], self[2]
    buf:put(op)
@@ -241,6 +247,33 @@ function Ins.__index:write(buf)
    else
       error("bad instruction ["..tostring(op).."] (op mode unknown)")
    end
+end
+local function hsize2hbits(s)
+   if s <= 0 then
+      return 0
+   elseif s == 1 then
+      return 1
+   end
+   s = s - 1
+   local c = 0
+   while s > 0 do
+      s = bit.rshift(s, 1)
+      c = c + 1
+   end
+   return c
+end
+function Ins.__index.tnewsize(narry, nhash)
+   if narry then
+      if narry < 3 then
+         narry = 3
+      elseif narry > 0x7ff then
+         narry = 0x7ff
+      end
+   else
+      narry = 0
+   end
+   nhash = nhash or 0
+   return bit.bor(narry, bit.lshift(hsize2hbits(nhash), 11))
 end
 
 KObj = { }
@@ -289,11 +322,36 @@ function KObj.__index:write_kcdata(buf, v)
       assert('Unknown KCDATA : ' .. tostring(v))
    end
 end
+
+local function write_ktabk(buf, val, narrow)
+   local tp = type(val)
+   if tp == "string" then
+      buf:put_uleb128(KTAB.STR + #val)
+      buf:put_bytes(val)
+   elseif tp == "number" then
+      local u32_lo, u32_hi = dword_get_u32(double_new, val)
+      buf:put(KTAB.NUM)
+      buf:put_uleb128(u32_lo[0])
+      buf:put_uleb128(u32_hi[0])
+   elseif tp == "boolean" then
+      buf:put(val and KTAB.TRUE or KTAB.FALSE)
+   elseif tp == "nil" then
+      buf:put(KTAB.NIL)
+   else
+      assert(false, "error with constant in ktabk")
+   end
+end
+
 function KObj.__index:write_table(buf, v)
-   error("NYI")
-   local seen = { }
-   for i, v in ipairs(v) do
-      seen[i] = true
+   buf:put_uleb128(KOBJ.TAB)
+   buf:put_uleb128(v.narray)
+   buf:put_uleb128(v.nhash)
+   for i = 0, v.narray - 1 do
+      write_ktabk(buf, v.array[i], true)
+   end
+   for i = 1, v.nhash do
+      write_ktabk(buf, v.hash_keys[i], false)
+      write_ktabk(buf, v.hash_values[i], true)
    end
 end
 
@@ -423,6 +481,13 @@ function Proto.__index:const(val)
       error("not a const: "..tostring(val))
    end
    return self.kcache[val].idx
+end
+function Proto.__index:new_table_template()
+   local t = { array = {}, hash_keys = {}, hash_values = {} }
+   local item = KObj.new(t)
+   item.idx = #self.kobj
+   self.kobj[#self.kobj + 1] = item
+   return item.idx, t
 end
 function Proto.__index:line(ln)
    self.currline = ln
@@ -763,22 +828,11 @@ function Proto.__index:op_load(dest, val)
       error("cannot load as constant: "..tostring(val))
    end
 end
-function Proto.__index:op_tnew(dest, narry, nhash)
-   if narry then
-      if narry < 3 then
-         narry = 3
-      elseif narry > 0x7ff then
-         narry = 0x7ff
-      end
-   else
-      narry = 0
-   end
-   if nhash then
-      nhash = math.ceil(nhash / 2)
-   else
-      nhash = 0
-   end
-   return self:emit(BC.TNEW, dest, bit.bor(narry, bit.lshift(nhash, 11)))
+function Proto.__index:op_tdup(dest, index)
+   return self:emit(BC.TDUP, dest, index)
+end
+function Proto.__index:op_tnew(dest, size)
+   return self:emit(BC.TNEW, dest, size)
 end
 function Proto.__index:op_tget(dest, tab, ktag, key)
    local ins_name = 'TGET' .. ktag
