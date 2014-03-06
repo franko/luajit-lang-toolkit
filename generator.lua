@@ -73,6 +73,12 @@ local function is_local_var(ctx, node)
    end
 end
 
+local function mov_toreg(ctx, dest, src)
+   if dest ~= src then
+      ctx:op_move(dest, src)
+   end
+end
+
 local function is_byte_number(v)
    return type(v) == 'number' and v % 1 == 0 and v >= 0 and v < 256
 end
@@ -97,9 +103,7 @@ function ExpressionRule:Identifier(node, dest)
          local uv = self.ctx:upval(name)
          self.ctx:op_uget(dest, uv)
       else
-         if dest ~= var.idx then
-            self.ctx:op_move(dest, var.idx)
-         end
+         mov_toreg(self.ctx, dest, var.idx)
       end
    else
       self.ctx:op_gget(dest, name)
@@ -826,10 +830,7 @@ local function generate(tree, name)
       elseif lhs.tag == 'upval' then
          self.ctx:op_uset(lhs.uv, 'V', expr)
       elseif lhs.tag == 'local' then
-         local dest = lhs.target
-         if dest ~= expr then
-            self.ctx:op_move(dest, expr)
-         end
+         mov_toreg(self.ctx, lhs.target, expr)
       else
          self.ctx:op_gset(expr, lhs.name)
       end
@@ -906,9 +907,7 @@ local function generate(tree, name)
             rule = MultiExprRule[node.kind]
             local base = self.ctx.freereg
             local mres, tailcall = rule(self, node, 1, base == dest and tail)
-            if base ~= dest then
-               self.ctx:op_move(dest, base)
-            end
+            mov_toreg(self.ctx, dest, base)
             return tailcall
          else
             error("Cannot find an ExpressionRule for " .. node.kind)
