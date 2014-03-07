@@ -108,6 +108,9 @@ def compare_to_ref(name, fullname, output_test):
 			write_diff(output_test, s, name, source)
 	return "fail", None
 
+for filename in glob("tests/log/*"):
+	os.remove(filename)
+
 for dirpath, name in lua_files(test_dir):
 	fullname = os.path.join(dirpath, name + ".lua")
 
