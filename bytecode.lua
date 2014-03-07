@@ -323,12 +323,21 @@ function KObj.__index:write_kcdata(buf, v)
    end
 end
 
+local function num_is_int32(x)
+   return x % 1 == 0 and x >= -2^31 and x < 2^31
+end
+
 local function write_ktabk(buf, val, narrow)
    local tp = type(val)
    if tp == "string" then
       buf:put_uleb128(KTAB.STR + #val)
       buf:put_bytes(val)
    elseif tp == "number" then
+      if narrow and num_is_int32(val) then
+         buf:put(KTAB.INT)
+         buf:put_uleb128(val)
+         return
+      end
       local u32_lo, u32_hi = dword_get_u32(double_new, val)
       buf:put(KTAB.NUM)
       buf:put_uleb128(u32_lo[0])

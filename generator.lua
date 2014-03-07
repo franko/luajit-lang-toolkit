@@ -146,6 +146,10 @@ local function emit_tdup(self, dest, ins)
    return t
 end
 
+local function is_kint(x)
+   return x % 1 == 0 and x >= 0 and x < 2^31
+end
+
 function ExpressionRule:Table(node, dest)
    local free = self.ctx.freereg
    local ins = self.ctx:op_tnew(free, 0)
@@ -178,11 +182,11 @@ function ExpressionRule:Table(node, dest)
       local key, value = node.hash_keys[i], node.hash_values[i]
       if expr_isk(key) and key.value ~= nil and expr_isk(value) then
          local kval, vval = key.value, value.value
-         if type(kval) == "number" and kval == 0 then
+         if type(kval) == "number" and is_kint(kval) then
             if not t then t = emit_tdup(self, free, ins) end
             t.array[kval] = vval
-            narray = math.max(narray, 1)
-            zeroarr = 1
+            narray = math.max(narray, kval + 1)
+            if kval == 0 then zeroarr = 1 end
          else
             nhash = nhash + 1
             if not t then t = emit_tdup(self, free, ins) end
