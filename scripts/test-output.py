@@ -6,7 +6,7 @@ test_dir = "tests"
 luajit_exec = "luajit"
 
 for dirpath, dirnames, filenames in os.walk(test_dir):
-    for filename in filenames:
+    for filename in sorted(filenames):
         m = re.match(r'([^.]+)\.lua$', filename)
         if m:
             fullname = os.path.join(dirpath, filename)

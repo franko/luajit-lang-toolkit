@@ -10,7 +10,7 @@ diff_exec = "diff"
 
 def lua_files(test_dir):
 	for dirpath, dirnames, filenames in os.walk(test_dir):
-		for filename in filenames:
+		for filename in sorted(filenames):
 			m = re.match(r'([^.]+)\.lua$', filename)
 			if m:
 				yield dirpath, m.group(1)
