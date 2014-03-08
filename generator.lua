@@ -386,7 +386,7 @@ function MultiExprRule:CallExpression(node, want, tail)
    return emit_call_expression(self, node, want, tail, false)
 end
 
-function ExpressionRule:SendExpression(node, want, tail)
+function MultiExprRule:SendExpression(node, want, tail)
    return emit_call_expression(self, node, want, tail, true)
 end
 
