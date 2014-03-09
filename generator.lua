@@ -566,6 +566,8 @@ function StatementRule:LabelStatement(node)
 end
 
 function StatementRule:GotoStatement(node)
+   -- TODO: to be fixed to emit UCLO if needed
+   -- probably need to use scope_jump
    return self.ctx:jump(node.label)
 end
 
@@ -707,36 +709,32 @@ end
 function StatementRule:WhileStatement(node)
    local free = self.ctx.freereg
    local loop, exit = util.genid(), util.genid()
-   local save_exit, save_exit_reg = self:loop_enter(exit, free)
+   self:loop_enter(exit, free)
    self.ctx:here(loop)
    self:test_emit(node.test, exit)
    self.ctx:loop(exit)
    self:emit(node.body)
    self.ctx:jump(loop, free)
    self.ctx:here(exit)
-   self:loop_leave(save_exit, save_exit_reg)
+   self:loop_leave()
    self.ctx.freereg = free
 end
 function StatementRule:RepeatStatement(node)
    local free = self.ctx.freereg
    local loop, exit = util.genid(), util.genid()
-   local save_exit, save_exit_reg = self:loop_enter(exit, free)
+   self:loop_enter(exit, free)
    self.ctx:here(loop)
    self.ctx:loop(exit)
    self:emit(node.body)
    self:test_emit(node.test, loop)
    self.ctx:here(exit)
-   self:loop_leave(save_exit, save_exit_reg)
+   self:loop_leave()
    self.ctx.freereg = free
 end
 function StatementRule:BreakStatement()
-   if self.exit then
-      -- The following call will generate either a JMP instruction or an UCLO instruction
-      -- with jump as appropriate.
-      self.ctx:close_block(self.exit_reg, self.exit)
-   else
-      error("no loop to break")
-   end
+   local base, exit, need_uclo = self.ctx:current_loop()
+   self.ctx:scope_jump(exit, base, need_uclo)
+   self.ctx.scope.need_uclo = false
 end
 function StatementRule:ForStatement(node)
    local free = self.ctx.freereg
@@ -758,10 +756,10 @@ function StatementRule:ForStatement(node)
    end
    self.ctx:setreg(base + 3)
    local loop = self.ctx:op_fori(base)
-   local save_exit, save_exit_reg = self:loop_enter(exit, free)
+   self:loop_enter(exit, free)
    self.ctx:newvar(name)
    self:emit(node.body)
-   self:loop_leave(save_exit, save_exit_reg)
+   self:loop_leave()
    self.ctx:op_forl(base, loop)
    self.ctx:here(exit)
    self.ctx.freereg = free
@@ -777,9 +775,9 @@ function StatementRule:ForInStatement(node)
 
    self:expr_tomultireg(expr, 3) -- func, state, ctl
    self.ctx:nextreg(3)
-   self.ctx:jump(loop)
+   self.ctx:jump(loop, self.ctx.freereg)
 
-   local save_exit, save_exit_reg = self:loop_enter(exit, free)
+   self:loop_enter(exit, free)
 
    for i=1, #vars do
       local name = vars[i].name
@@ -789,7 +787,7 @@ function StatementRule:ForInStatement(node)
 
    local ltop = self.ctx:here(util.genid())
    self:emit(node.body)
-   self:loop_leave(save_exit, save_exit_reg)
+   self:loop_leave()
    self.ctx:here(loop)
    self.ctx:op_iterc(iter, #vars)
    self.ctx:op_iterl(iter, ltop)
@@ -869,14 +867,11 @@ local function generate(tree, name)
 
    function self:loop_enter(exit, exit_reg)
       self:block_enter()
-      local prev_exit, prev_exit_reg = self.exit, self.exit_reg
-      self.exit, self.exit_reg = exit, exit_reg
-      return prev_exit, prev_exit_reg
+      self.ctx:loop_register(exit, exit_reg)
    end
 
-   function self:loop_leave(exit, exit_reg)
+   function self:loop_leave()
       self:block_leave()
-      self.exit, self.exit_reg = exit, exit_reg
    end
 
    function self:assign(lhs, expr)

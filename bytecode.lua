@@ -630,7 +630,7 @@ end
 local function scope_var_lookup(scope, name)
    while scope do
       local var = scope.actvars[name]
-      if var then return var end
+      if var then return var, scope end
       scope = scope.outer
    end
 end
@@ -653,30 +653,30 @@ function Proto.__index:param(...)
 end
 function Proto.__index:upval(name)
    if not self.upvals[name] then
-      local proto, upval, vinfo = self.outer, { }
+      local proto, upval = self.outer, { }
+      local var, scope
       while proto do
-         if scope_var_lookup(proto.scope, name) then
+         var, scope = scope_var_lookup(proto.scope, name)
+         if var then
             break
          end
          proto = proto.outer
       end
-      vinfo = assert(self:lookup(name), "no upvalue found for "..name)
 
-      upval = { vinfo = vinfo; proto = proto; }
+      upval = { vinfo = var; proto = proto; }
 
       -- for each upval we set either outer_idx or outer_uv
       if proto == self.outer then
          -- The variable is in the enclosing function's scope.
          -- We store just its register index.
-         upval.outer_idx = vinfo.idx
+         upval.outer_idx = var.idx
+         scope.need_uclo = true
       else
          -- The variable is in the outer scope of the enclosing
          -- function. We register this variable as an upvalue for
          -- the enclosing function. Then we store the upvale index.
          upval.outer_uv = self.outer:upval(name)
       end
-
-      proto.scope.need_uclo = true
 
       self.upvals[name] = upval
       upval.idx = #self.upvals
@@ -711,20 +711,44 @@ function Proto.__index:enable_jump(name)
    end
    here[#here + 1] = #self.code + 1
 end
-function Proto.__index:jump(name, freereg)
-   freereg = freereg or self.freereg
+local function locate_jump(self, name)
    if self.labels[name] then
       -- backward jump
-      local offs = self.labels[name]
-      if self.scope.need_uclo then
-         return self:emit(BC.UCLO, freereg, offs - #self.code)
-      else
-         return self:emit(BC.JMP, freereg, offs - #self.code)
-      end
+      return self.labels[name] - #self.code
    else
       -- forward jump
       self:enable_jump(name)
-      return self:emit(BC.JMP, freereg, NO_JMP)
+      return NO_JMP
+   end
+end
+function Proto.__index:scope_jump(name, basereg, need_uclo)
+   local jump = locate_jump(self, name)
+   return self:emit(need_uclo and BC.UCLO or BC.JMP, basereg, jump)
+end
+function Proto.__index:jump(name, basereg)
+   local jump = locate_jump(self, name)
+   return self:emit(BC.JMP, basereg, jump)
+end
+function Proto.__index:loop_register(exit, exit_reg)
+   self.scope.loop_exit = exit
+   self.scope.loop_basereg = exit_reg
+end
+function Proto.__index:current_loop()
+   local scope = self.scope
+   local need_uclo = false
+   while scope do
+      need_uclo = need_uclo or scope.need_uclo
+      if scope.loop_exit then break end
+      scope = scope.outer
+   end
+   assert(scope, "no loop to break")
+   return scope.loop_basereg, scope.loop_exit, need_uclo
+end
+function Proto.__index:global_uclo()
+   local scope = self.scope
+   while scope do
+      if scope.need_uclo then return true end
+      scope = scope.outer
    end
 end
 function Proto.__index:loop(name)
@@ -738,8 +762,8 @@ function Proto.__index:loop(name)
       return self:emit(BC.LOOP, self.freereg, NO_JMP)
    end
 end
-function Proto.__index:op_jump(delta)
-   return self:emit(BC.JMP, self.freereg, delta)
+function Proto.__index:op_jump(jump, base)
+   return self:emit(BC.JMP, base, jump)
 end
 function Proto.__index:op_loop(delta)
    return self:emit(BC.LOOP, self.freereg, delta)
@@ -894,7 +918,7 @@ function Proto.__index:close_block(reg, exit)
    end
 end
 function Proto.__index:close_uvals()
-   if self.scope.need_uclo then
+   if self:global_uclo() then
       self:emit(BC.UCLO, 0, 0)
    end
 end
