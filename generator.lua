@@ -131,10 +131,13 @@ function MultiExprRule:Vararg(node, want)
    return true, false -- Multiple results, no tail call.
 end
 
-local function expr_isk(node)
-   if node.kind == "Literal" then
+local function expr_isk(self, node)
+   local const = self:const_eval_try(node)
+   if const then
+      return true, const
+   elseif node.kind == "Literal" then
       local t = type(node.value)
-      return (t == "string" or t == "number" or t == "boolean" or t == "nil")
+      return (t == "string" or t == "boolean" or t == "nil"), node.value
    else
       return false
    end
@@ -160,9 +163,10 @@ function ExpressionRule:Table(node, dest)
    local zeroarr = 0
    for k = 1, #node.array_entries do
       local expr = node.array_entries[k]
-      if expr_isk(expr) then
+      local is_const, expr_val = expr_isk(self, expr)
+      if is_const then
          if not t then t = emit_tdup(self, free, ins) end
-         t.array[k] = expr.value
+         t.array[k] = expr_val
          narray = k + 1
       else
          local ktag, kval
@@ -180,8 +184,9 @@ function ExpressionRule:Table(node, dest)
 
    for i = 1, #node.hash_keys do
       local key, value = node.hash_keys[i], node.hash_values[i]
-      if expr_isk(key) and key.value ~= nil and expr_isk(value) then
-         local kval, vval = key.value, value.value
+      local k_is_const, kval = expr_isk(self, key)
+      local v_is_const, vval = expr_isk(self, value)
+      if k_is_const and kval ~= nil and v_is_const then
          if type(kval) == "number" and is_kint(kval) then
             if not t then t = emit_tdup(self, free, ins) end
             t.array[kval] = vval
