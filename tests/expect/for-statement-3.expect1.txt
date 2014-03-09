@@ -1,0 +1,43 @@
+-- BYTECODE -- "for-statement-3.lua":6-6
+0001    UGET     1   0      ; i
+0002    ADDVV    1   1   0
+0003    RET1     1   2
+
+-- BYTECODE -- "for-statement-3.lua":1-9
+0001    KSHORT   1   0
+0002    TNEW     2   0
+0003    KSHORT   3   1
+0004    MOV      4   0
+0005    KSHORT   5   1
+0006    FORI     3 => 0013
+0007 => MULVV    7   6   6
+0008    ADDVV    1   1   7
+0009    FNEW     7   0      ; "for-statement-3.lua":6
+0010    TSETV    7   2   6
+0011    UCLO     6 => 0012
+0012 => FORL     3 => 0007
+0013 => MOV      3   1
+0014    MOV      4   2
+0015    RET      3   3
+
+-- BYTECODE -- "for-statement-3.lua":0-14
+0001    FNEW     0   0      ; "for-statement-3.lua":1
+0002    MOV      1   0
+0003    KSHORT   2  10
+0004    CALL     1   3   2
+0005    GGET     3   1      ; "print"
+0006    MOV      4   1
+0007    CALL     3   1   2
+0008    GGET     3   1      ; "print"
+0009    TGETB    4   2   1
+0010    KSHORT   5   7
+0011    CALL     4   2   2
+0012    TGETB    5   2   2
+0013    KSHORT   6   7
+0014    CALL     5   2   2
+0015    TGETB    6   2   3
+0016    KSHORT   7   7
+0017    CALL     6   0   2
+0018    CALLM    3   1   2
+0019    RET0     0   1
+

@@ -1,0 +1,83 @@
+-- BYTECODE -- "closure-2B.lua":5-5
+0001    UGET     1   0      ; n
+0002    ADDVV    1   1   0
+0003    USETV    0   1      ; n
+0004    RET0     0   1
+
+-- BYTECODE -- "closure-2B.lua":6-6
+0001    UGET     1   0      ; n
+0002    MULVV    1   1   0
+0003    USETV    0   1      ; n
+0004    RET0     0   1
+
+-- BYTECODE -- "closure-2B.lua":7-7
+0001    UGET     0   0      ; n
+0002    RET1     0   2
+
+-- BYTECODE -- "closure-2B.lua":12-12
+0001    UGET     1   0      ; n
+0002    ADDVV    1   1   0
+0003    USETV    0   1      ; n
+0004    RET0     0   1
+
+-- BYTECODE -- "closure-2B.lua":13-13
+0001    UGET     1   0      ; n
+0002    MULVV    1   1   0
+0003    USETV    0   1      ; n
+0004    RET0     0   1
+
+-- BYTECODE -- "closure-2B.lua":14-14
+0001    UGET     0   0      ; n
+0002    RET1     0   2
+
+-- BYTECODE -- "closure-2B.lua":1-17
+0001    KSHORT   1  10
+0002    ISGE     1   0
+0003    JMP      1 => 0015
+0004    ADDVN    1   0   0  ; 1
+0005    TNEW     2 4096
+0006    FNEW     3   1      ; "closure-2B.lua":5
+0007    TSETS    3   2   0  ; "incr"
+0008    FNEW     3   3      ; "closure-2B.lua":6
+0009    TSETS    3   2   2  ; "mult"
+0010    FNEW     3   5      ; "closure-2B.lua":7
+0011    TSETS    3   2   4  ; "get"
+0012    UCLO     0 => 0013
+0013 => RET1     2   2
+0014    UCLO     1 => 0026
+0015 => MULNV    1   0   1  ; 2
+0016    TNEW     2 4096
+0017    FNEW     3   6      ; "closure-2B.lua":12
+0018    TSETS    3   2   0  ; "incr"
+0019    FNEW     3   7      ; "closure-2B.lua":13
+0020    TSETS    3   2   2  ; "mult"
+0021    FNEW     3   8      ; "closure-2B.lua":14
+0022    TSETS    3   2   4  ; "get"
+0023    UCLO     0 => 0024
+0024 => RET1     2   2
+0025    UCLO     1 => 0026
+0026 => RET0     0   1
+
+-- BYTECODE -- "closure-2B.lua":0-25
+0001    FNEW     0   0      ; "closure-2B.lua":1
+0002    MOV      1   0
+0003    KSHORT   2   7
+0004    CALL     1   2   2
+0005    TGETS    2   1   1  ; "mult"
+0006    KSHORT   3   3
+0007    CALL     2   1   2
+0008    TGETS    2   1   2  ; "incr"
+0009    KSHORT   3   1
+0010    CALL     2   1   2
+0011    TGETS    2   1   1  ; "mult"
+0012    KSHORT   3   2
+0013    CALL     2   1   2
+0014    TGETS    2   1   2  ; "incr"
+0015    KSHORT   3   5
+0016    CALL     2   1   2
+0017    GGET     2   3      ; "print"
+0018    TGETS    3   1   4  ; "get"
+0019    CALL     3   0   1
+0020    CALLM    2   1   0
+0021    RET0     0   1
+

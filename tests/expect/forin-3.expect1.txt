@@ -1,0 +1,44 @@
+-- BYTECODE -- "forin-3.lua":6-6
+0001    UGET     1   0      ; i
+0002    ADDVV    1   1   0
+0003    RET1     1   2
+
+-- BYTECODE -- "forin-3.lua":1-9
+0001    KSHORT   1   0
+0002    TNEW     2   0
+0003    GGET     3   0      ; "ipairs"
+0004    MOV      4   0
+0005    CALL     3   4   2
+0006    JMP      6 => 0012
+0007 => MULVV    8   7   7
+0008    ADDVV    1   1   8
+0009    FNEW     8   1      ; "forin-3.lua":6
+0010    TSETV    8   2   6
+0011    UCLO     6 => 0012
+0012 => ITERC    6   3   3
+0013    ITERL    6 => 0007
+0014    MOV      3   1
+0015    MOV      4   2
+0016    RET      3   3
+
+-- BYTECODE -- "forin-3.lua":0-14
+0001    FNEW     0   0      ; "forin-3.lua":1
+0002    MOV      1   0
+0003    TDUP     2   1
+0004    CALL     1   3   2
+0005    GGET     3   2      ; "print"
+0006    MOV      4   1
+0007    CALL     3   1   2
+0008    GGET     3   2      ; "print"
+0009    TGETB    4   2   1
+0010    KSHORT   5   7
+0011    CALL     4   2   2
+0012    TGETB    5   2   2
+0013    KSHORT   6   7
+0014    CALL     5   2   2
+0015    TGETB    6   2   3
+0016    KSHORT   7   7
+0017    CALL     6   0   2
+0018    CALLM    3   1   2
+0019    RET0     0   1
+

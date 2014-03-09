@@ -1,0 +1,26 @@
+-- BYTECODE -- "repeat-test-2.lua":1-11
+0001    KSHORT   1   0
+0002    KSHORT   2   1
+0003    KPRI     3   0
+0004 => LOOP     4 => 0015
+0005    MULVV    4   2   2
+0006    ADDVV    1   1   4
+0007    ADDVN    2   2   0  ; 1
+0008    ISLT     0   2
+0009    JMP      4 => 0012
+0010    KPRI     3   1
+0011    JMP      4 => 0013
+0012 => KSHORT   3   1
+0013 => ISF          3
+0014    JMP      4 => 0004
+0015 => RET1     1   2
+
+-- BYTECODE -- "repeat-test-2.lua":0-14
+0001    FNEW     0   0      ; "repeat-test-2.lua":1
+0002    GGET     1   1      ; "print"
+0003    MOV      2   0
+0004    KSHORT   3  20
+0005    CALL     2   0   2
+0006    CALLM    1   1   0
+0007    RET0     0   1
+
