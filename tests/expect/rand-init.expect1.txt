@@ -1,0 +1,156 @@
+-- BYTECODE -- "rand-init.lua":1-1
+0001    TNEW     0   0
+0002    RET1     0   2
+
+-- BYTECODE -- "rand-init.lua":17-24
+0001    UGET     0   0      ; band
+0002    UGET     1   1      ; Ri
+0003    ADDVN    1   1   0  ; 1
+0004    UGET     2   2      ; sar
+0005    UGET     3   1      ; Ri
+0006    SUBVN    3   3   1  ; 16
+0007    KSHORT   4  31
+0008    CALL     2   0   3
+0009    CALLM    0   2   1
+0010    UGET     1   0      ; band
+0011    UGET     2   3      ; Rj
+0012    ADDVN    2   2   0  ; 1
+0013    UGET     3   2      ; sar
+0014    UGET     4   3      ; Rj
+0015    SUBVN    4   4   1  ; 16
+0016    KSHORT   5  31
+0017    CALL     3   0   3
+0018    CALLM    1   2   1
+0019    MOV      2   0
+0020    USETV    3   1      ; Rj
+0021    USETV    1   2      ; Ri
+0022    UGET     2   0      ; band
+0023    UGET     3   4      ; Rm
+0024    TGETV    3   3   0
+0025    UGET     4   4      ; Rm
+0026    TGETV    4   4   1
+0027    SUBVV    3   3   4
+0028    KNUM     4   2      ; 2147483647
+0029    CALL     2   2   3
+0030    UGET     3   4      ; Rm
+0031    TSETV    2   3   1
+0032    MULVN    3   2   3  ; 4.6566128752458e-10
+0033    RET1     3   2
+
+-- BYTECODE -- "rand-init.lua":10-25
+0001    UGET     1   0      ; iarray
+0002    KSHORT   2  17
+0003    CALL     1   2   2
+0004    KSHORT   2  16
+0005    KSHORT   3  11
+0006    KSHORT   4   0
+0007    KSHORT   5  16
+0008    KSHORT   6   1
+0009    FORI     4 => 0013
+0010 => KSHORT   8   0
+0011    TSETV    8   1   7
+0012    FORL     4 => 0010
+0013 => KSHORT   4  16
+0014    KSHORT   5   0
+0015    KSHORT   6  -1
+0016    FORI     4 => 0024
+0017 => UGET     8   1      ; band
+0018    MULVN    9   0   0  ; 9069
+0019    KNUM    10   1      ; 2147483647
+0020    CALL     8   2   3
+0021    MOV      0   8
+0022    TSETV    0   1   7
+0023    FORL     4 => 0017
+0024 => FNEW     4   0      ; "rand-init.lua":17
+0025    USETV    2   4      ; rand
+0026    UCLO     0 => 0027
+0027 => RET0     0   1
+
+-- BYTECODE -- "rand-init.lua":34-43
+0001    UGET     0   0      ; Rj
+0002    UGET     1   1      ; Rm
+0003    SUBVN    2   0   0  ; 5
+0004    KSHORT   3   1
+0005    ISGE     2   3
+0006    JMP      3 => 0008
+0007    ADDVN    2   2   1  ; 17
+0008 => TGETV    3   1   2
+0009    TGETV    4   1   0
+0010    SUBVV    3   3   4
+0011    KSHORT   4   0
+0012    ISGE     3   4
+0013    JMP      4 => 0015
+0014    ADDVN    3   3   2  ; 2147483647
+0015 => TSETV    3   1   0
+0016    KSHORT   4  17
+0017    ISGE     0   4
+0018    JMP      4 => 0022
+0019    ADDVN    4   0   3  ; 1
+0020    USETV    0   4      ; Rj
+0021    JMP      4 => 0023
+0022 => USETN    0   3      ; Rj ; 1
+0023 => MULVN    4   3   4  ; 4.6566128752458e-10
+0024    RET1     4   2
+
+-- BYTECODE -- "rand-init.lua":27-44
+0001    TNEW     1   0
+0002    KSHORT   2   1
+0003    KSHORT   3   1
+0004    KSHORT   4  17
+0005    KSHORT   5   1
+0006    FORI     3 => 0010
+0007 => KSHORT   7   0
+0008    TSETV    7   1   6
+0009    FORL     3 => 0007
+0010 => KSHORT   3  17
+0011    KSHORT   4   1
+0012    KSHORT   5  -1
+0013    FORI     3 => 0018
+0014 => MULVN    7   0   0  ; 9069
+0015    MODVN    0   7   1  ; 2147483648
+0016    TSETV    0   1   6
+0017    FORL     3 => 0014
+0018 => FNEW     3   0      ; "rand-init.lua":34
+0019    USETV    0   3      ; rand
+0020    UCLO     0 => 0021
+0021 => RET0     0   1
+
+-- BYTECODE -- "rand-init.lua":0-51
+0001    FNEW     0   0      ; "rand-init.lua":1
+0002    MOV      1   0
+0003    KNIL     2   3
+0004    GGET     4   1      ; "jit"
+0005    ISF          4
+0006    JMP      4 => 0023
+0007    GGET     4   1      ; "jit"
+0008    TGETS    4   4   2  ; "status"
+0009    ISF          4
+0010    JMP      5 => 0023
+0011    GGET     4   1      ; "jit"
+0012    TGETS    4   4   2  ; "status"
+0013    CALL     4   2   1
+0014    ISF          4
+0015    JMP      5 => 0023
+0016    GGET     4   3      ; "require"
+0017    KSTR     5   4      ; "bit"
+0018    CALL     4   2   2
+0019    TGETS    5   4   5  ; "band"
+0020    TGETS    6   4   6  ; "arshift"
+0021    FNEW     3   7      ; "rand-init.lua":10
+0022    UCLO     4 => 0024
+0023 => FNEW     3   8      ; "rand-init.lua":27
+0024 => MOV      4   3
+0025    KSHORT   5  15
+0026    CALL     4   1   2
+0027    KSHORT   4   1
+0028    KSHORT   5  10
+0029    KSHORT   6   1
+0030    FORI     4 => 0036
+0031 => GGET     8   9      ; "print"
+0032    MOV      9   2
+0033    CALL     9   0   1
+0034    CALLM    8   1   0
+0035    FORL     4 => 0031
+0036 => UCLO     0 => 0037
+0037 => RET0     0   1
+
