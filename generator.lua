@@ -980,10 +980,9 @@ local function generate(tree, name)
       local rule = MultiExprRule[node.kind]
       if rule then
          return rule(self, node, want, tail)
-      elseif (want > 0 or want == MULTIRES) and ExpressionRule[node.kind] then
-         rule = ExpressionRule[node.kind]
+      elseif (want > 0 or want == MULTIRES) then
          local dest = self.ctx.freereg
-         rule(self, node, dest)
+         self:expr_toreg(node, dest)
          if want > 1 then
             self.ctx:op_nils(dest + 1, want - 1)
          end
