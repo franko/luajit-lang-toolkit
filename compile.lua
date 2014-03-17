@@ -9,14 +9,6 @@ local function compile(reader, filename, options)
     local tree = parse(ast, ls)
     local luacode = generator(tree, filename)
 
-    if options.bcprint then
-        -- dump the bytecode
-        local jbc = require("jit.bc")
-        local fn = assert(loadstring(luacode))
-        jbc.dump(fn, nil, true)
-        return
-    end
-
     return luacode
 end
 

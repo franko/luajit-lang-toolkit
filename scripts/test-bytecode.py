@@ -117,7 +117,7 @@ for filename in glob("tests/log/*"):
 for dirpath, name in lua_files(test_dir):
 	fullname = os.path.join(dirpath, name + ".lua")
 
-	output_test = do_process_output([luajit_exec, "run.lua", "-b", fullname])
+	output_test = do_process_output([luajit_exec, "run.lua", "-bl", fullname])
 	msg, source = compare_to_ref(name, fullname, output_test)
 
 	led = " " if msg == "pass" else "*"
