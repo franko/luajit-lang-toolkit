@@ -373,6 +373,76 @@ function KNum.__index:write(buf)
    buf:put_number(self[1])
 end
 
+-- Determine if a backward jump up to "label_name" needs an UCLO instruction.
+local function label_need_uclo(scope, label_name)
+   local label_list = scope.goto_labels
+   local need_uclo = false
+   for i = #label_list, 1, -1 do
+      local label = label_list[i]
+      need_uclo = need_uclo or label.need_uclo
+      if label.name == label_name then break end
+   end
+   return need_uclo
+end
+
+local function goto_label_resolve(self, label_name)
+   local scope = self.scope
+   while scope do
+      local ls = scope.goto_labels
+      for i = 1, #ls do
+         if ls[i].name == label_name then
+            return ls[i]
+         end
+      end
+      scope = scope.outer
+   end
+end
+
+local function goto_label_append(self, label_name)
+   local scope = self.scope
+   local label = { name = label_name, scope = scope, basereg = self.freereg, need_uclo = false, pc = #self.code }
+   scope.goto_labels[#scope.goto_labels + 1] = label
+   return label
+end
+
+local function goto_fixup_append(self, label_name, pc)
+   local scope = self.scope
+   local fixup = { name = label_name, basereg = self.freereg, need_uclo = false, pc = pc }
+   scope.goto_fixups[#scope.goto_fixups + 1] = fixup
+end
+
+-- Follow the scope from the bottom (src_scope) to upper (dest_scope) to
+-- tell if an UCLO instruction is needed to perform such a backward jump.
+local function goto_uclo_backward(self, label, src_scope, dest_scope)
+   local scope = src_scope
+   local need_uclo = false
+   while scope and scope ~= dest_scope do
+      need_uclo = need_uclo or scope.need_uclo
+      scope = scope.outer
+   end
+   if scope then
+      need_uclo = need_uclo or label_need_uclo(scope, label.name)
+   end
+   return need_uclo
+end
+
+-- Bind dangling goto instructions ("fixups") to a label.
+-- When a dangling goto is bound to a label it is removed from the
+-- fixup list.
+local function goto_label_bind(self, label_name)
+   local fixup_list = self.scope.goto_fixups
+   local i = 1
+   while fixup_list[i] do
+      local fixup = fixup_list[i]
+      if fixup.name == label_name then
+         self:fix_goto(fixup.pc, self.freereg, fixup.need_uclo, #self.code - fixup.pc)
+         table.remove(fixup_list, i)
+      else
+         i = i + 1
+      end
+   end
+end
+
 Proto = {
    CHILD  = 0x01; -- Has child prototypes.
    VARARG = 0x02; -- Vararg function.
@@ -381,7 +451,7 @@ Proto = {
    ILOOP  = 0x10; -- Patched bytecode with ILOOP etc.
 }
 function Proto.new(flags, outer)
-   return setmetatable({
+   local proto = setmetatable({
       flags  = flags or 0;
       outer  = outer;
       params = { };
@@ -395,11 +465,6 @@ function Proto.new(flags, outer)
       tohere = { };
       kcache = { };
       varinfo = { };
-      scope  = {
-         actvars = { };
-         basereg = 0;
-         need_uclo = false;
-      };
       freereg   = 0;
       currline  = 1;
       lastline  = 1;
@@ -408,6 +473,9 @@ function Proto.new(flags, outer)
       framesize = 0;
       explret = false;
    }, Proto)
+
+   proto:enter()
+   return proto
 end
 Proto.__index = { }
 function Proto.__index:nextreg(num)
@@ -425,17 +493,16 @@ function Proto.__index:setreg(reg)
       self.framesize = self.freereg
    end
 end
-function Proto.__index:getbase()
-   return self.scope.basereg + #self.scope.actvars
-end
 function Proto.__index:enter()
    local outer = self.scope
    self.scope = {
       actvars   = { };
       basereg   = self.freereg;
-      need_uclo = false;
+      goto_labels = { };
+      goto_fixups = { };
       outer     = outer;
    }
+   goto_label_append(self, nil) -- Add a label without name.
    return self.scope
 end
 function Proto.__index:is_root_scope()
@@ -445,8 +512,9 @@ function Proto.__index:leave()
    for i=1, #self.scope.actvars do
       self.scope.actvars[i].endpc = #self.code
    end
-   self.scope   = self.scope.outer
-   self.freereg = self:getbase()
+   local freereg = self.scope.basereg
+   self.scope = self.scope.outer
+   self.freereg = freereg
 end
 function Proto.__index:set_line(firstline, lastline)
    self.firstline = firstline
@@ -651,6 +719,18 @@ function Proto.__index:param(...)
    self.params[#self.params + 1] = var
    return var.idx
 end
+-- Find into the scope the label that immediately precedes where the given
+-- variable is declared and return the label.
+function Proto.__index:label_var_lookup(scope, var)
+   local label_list = scope.goto_labels
+   local label = label_list[1]
+   for i = 2, #label_list do
+      local next_label = label_list[i]
+      if next_label.basereg > var.idx then break end
+      label = next_label
+   end
+   return label
+end
 function Proto.__index:upval(name)
    if not self.upvals[name] then
       local proto, upval = self.outer, { }
@@ -670,6 +750,8 @@ function Proto.__index:upval(name)
          -- The variable is in the enclosing function's scope.
          -- We store just its register index.
          upval.outer_idx = var.idx
+         local label = self:label_var_lookup(scope, var)
+         label.need_uclo = true
          scope.need_uclo = true
       else
          -- The variable is in the outer scope of the enclosing
@@ -728,6 +810,48 @@ end
 function Proto.__index:jump(name, basereg)
    local jump = locate_jump(self, name)
    return self:emit(BC.JMP, basereg, jump)
+end
+-- When closing a scope this function is used to transfer all the dangling
+-- gotos (fixups) in the enclosing scope.
+-- Before being copied the basereg and need_uclo information is updated.
+-- The original list is not modified since it will be dropped with the scope
+-- itself.
+function Proto.__index:fscope_end()
+   local scope = self.scope
+   local fixup_list = scope.goto_fixups
+   local outer_list = scope.outer.goto_fixups
+   for i = 1, #fixup_list do
+      local fixup = fixup_list[i]
+      fixup.need_uclo = fixup.need_uclo or scope.need_uclo
+      fixup.basereg = scope.outer.basereg
+      outer_list[#outer_list + 1] = fixup
+   end
+end
+function Proto.__index:fix_goto(pc, basereg, need_uclo, jump)
+   local ins = self.code[pc]
+   local op = need_uclo and BC.UCLO or BC.JMP
+   ins:rewrite(op, basereg, jump)
+end
+function Proto.__index:goto_jump(label_name)
+   local label = goto_label_resolve(self, label_name)
+   if label then -- backward jump
+      local dest_scope, basereg = label.scope, label.basereg
+      local need_uclo = goto_uclo_backward(self, label, self.scope, dest_scope)
+      local op = need_uclo and BC.UCLO or BC.JMP
+      self:emit(op, basereg, label.pc - #self.code - 1)
+   else -- forward jump
+      self:emit(BC.JMP, 0, NO_JMP)
+      goto_fixup_append(self, label_name, #self.code)
+   end
+end
+function Proto.__index:goto_label(label_name)
+   if goto_label_resolve(self, label_name) then
+      -- TODO: ensure the error message is the same of LuaJIT
+      error("duplicate label name:", label_name)
+   end
+   local label = goto_label_append(self, label_name)
+   goto_label_bind(self, label_name)
+   return label
 end
 function Proto.__index:loop_register(exit, exit_reg)
    self.scope.loop_exit = exit
@@ -908,7 +1032,6 @@ function Proto.__index:close_block(reg, exit)
       else
          self:emit(BC.UCLO, reg, 0)
       end
-      self.scope.need_uclo = false
    else
       if exit then
          assert(not self.labels[name], "expected forward jump")

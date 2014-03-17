@@ -562,13 +562,11 @@ function StatementRule:SendExpression(node)
 end
 
 function StatementRule:LabelStatement(node)
-   return self.ctx:here(node.label)
+   local label = self.ctx:goto_label(node.label)
 end
 
 function StatementRule:GotoStatement(node)
-   -- TODO: to be fixed to emit UCLO if needed
-   -- probably need to use scope_jump
-   return self.ctx:jump(node.label)
+   self.ctx:goto_jump(node.label)
 end
 
 function StatementRule:BlockStatement(node, if_exit)
@@ -758,7 +756,9 @@ function StatementRule:ForStatement(node)
    local loop = self.ctx:op_fori(base)
    self:loop_enter(exit, free)
    self.ctx:newvar(name)
+   self:block_enter()
    self:emit(node.body)
+   self:block_leave()
    self:loop_leave()
    self.ctx:op_forl(base, loop)
    self.ctx:here(exit)
@@ -849,6 +849,7 @@ local function generate(tree, name)
    end
 
    function self:block_leave(exit)
+      self.ctx:fscope_end()
       self.ctx:close_block(self.ctx.scope.basereg, exit)
       self.ctx:leave()
    end
