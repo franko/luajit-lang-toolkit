@@ -251,8 +251,7 @@ local syntax = {
       base = "Statement",
       properties = {
          label = {
-            type = "node",
-            kind = "Identifier"
+            type = "string",
          }
       }
    },
@@ -261,8 +260,7 @@ local syntax = {
       base = "Statement",
       properties = {
          label = {
-            type = "node",
-            kind = "Identifier"
+            type = "string",
          }
       }
    },

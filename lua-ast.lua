@@ -128,8 +128,7 @@ function AST.break_stmt(ast, line)
 end
 
 function AST.label_stmt(ast, name, line)
-    local label = ident(name)
-    return build("LabelStatement", { label = label, line = line })
+    return build("LabelStatement", { label = name, line = line })
 end
 
 function AST.new_statement_expr(ast, expr, line)
@@ -158,6 +157,10 @@ function AST.for_iter_stmt(ast, vars, exps, body, line)
     if #exps > 1 then error('NYI: iter with multiple expression list') end
     local iter = exps[1]
     return build("ForInStatement", { init = init, iter = iter, body = body, line = line })
+end
+
+function AST.goto_stmt(ast, name, line)
+    return build("GotoStatement", { label = name, line = line })
 end
 
 local function new_scope(parent_scope)
