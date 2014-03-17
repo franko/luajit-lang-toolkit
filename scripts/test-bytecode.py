@@ -38,6 +38,7 @@ def normalize(source, outfile):
 		rline = None
 		m = re.match(r'(\d{4}) (  |=>) (.*)', line)
 		lab, ref, rem = m.groups()
+		rem = re.sub(r'\r+', r'', rem)
 		mr = re.match(r'([A-Z0-9]+\s+)(\d+) => (\d+)(.*)', rem)
 		if mr:
 			ins, reg, jmp, xrem = mr.groups()
@@ -74,8 +75,10 @@ def do_process_output(cmd):
 def expected_bytecode(name, fullname):
 	s = do_process_output([luajit_exec, "-bl", fullname])
 	yield s, "luajit"
-	for expect_filename in glob("tests/expect/*.txt"):
-		m = re.match(r'tests/expect/([^/]+)\.(expect\d+)\.txt$', expect_filename)
+	expect_dir = os.path.join("tests", "expect")
+	for expect_filename in glob(os.path.join(expect_dir, "*.txt")):
+		efilename = os.path.basename(expect_filename)
+		m = re.match(r'([^.]+)\.(expect\d+)\.txt$', efilename)
 		if m and m.group(1) == name:
 			ef = open(expect_filename, "r")
 			sf = StringIO.StringIO()

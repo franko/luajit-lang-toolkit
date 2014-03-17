@@ -995,7 +995,7 @@ function Dump.__index:write_header(buf)
    buf:put(Dump.HEAD_3)
    buf:put(Dump.VERS)
    buf:put(self.flags)
-   local name = string.gsub(self.name, "[^/]+/", "")
+   local name = string.gsub(self.name, "[^/\\]+[/\\]", "")
    if bit.band(self.flags, Dump.STRIP) == 0 then
       if not name then
          name = '(binary)'
