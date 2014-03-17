@@ -435,6 +435,11 @@ local function parse_label(ast, ls)
     return ast:label_stmt(name, ls.linenumber)
 end
 
+local function parse_goto(ast, ls)
+    local name = lex_str(ls)
+    return ast:goto_stmt(name, ls.linenumber)
+end
+
 -- Parse a statement. Returns the statement itself and a boolean that tells if it
 -- must be the last one in a chunk.
 local function parse_stmt(ast, ls)
