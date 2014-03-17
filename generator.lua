@@ -837,19 +837,6 @@ function StatementRule:Chunk(tree, name)
    self:close_proto()
 end
 
-local function dispatch(self, lookup, node, ...)
-   if type(node) ~= "table" then
-      error("not a table: "..tostring(node))
-   end
-   if not node.kind then
-      error("don't know what to do with: "..util.dump(node))
-   end
-   if not lookup[node.kind] then
-      error("no handler for "..node.kind)
-   end
-   return lookup[node.kind](self, node, ...)
-end
-
 local function generate(tree, name)
    local self = { line = 0 }
    self.main = bc.Proto.new(bc.Proto.VARARG)
@@ -890,7 +877,9 @@ local function generate(tree, name)
    end
 
    function self:emit(node, ...)
-      dispatch(self, StatementRule, node, ...)
+      local rule = StatementRule[node.kind]
+      if not rule then error("cannot find a statement rule for " .. node.kind) end
+      rule(self, node, ...)
       if node.line then self.ctx:line(node.line) end
    end
 
