@@ -436,8 +436,9 @@ local function parse_label(ast, ls)
 end
 
 local function parse_goto(ast, ls)
+    local line = ls.linenumber
     local name = lex_str(ls)
-    return ast:goto_stmt(name, ls.linenumber)
+    return ast:goto_stmt(name, line)
 end
 
 -- Parse a statement. Returns the statement itself and a boolean that tells if it
@@ -530,7 +531,7 @@ local function parse_chunk(ast, ls, top_level)
     end
     local lastline = ls.linenumber
     if top_level then
-        return ast:chunk(body, 0, lastline)
+        return ast:chunk(body, ls.chunkname, 0, lastline)
     else
         return ast:block_stmt(body, firstline, lastline)
     end

@@ -21,6 +21,9 @@ local syntax = {
          body = {
             type = "list",
             kind = "Statement"
+         },
+         chunkname = {
+            type = "string"
          }
       }
    },

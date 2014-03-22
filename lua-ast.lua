@@ -36,8 +36,8 @@ function AST.function_decl(ast, path, args, body, proto)
     return build("AssignmentExpression", { left = { path }, right = { fn }, line = line })
 end
 
-function AST.chunk(ast, body, firstline, lastline)
-    return build("Chunk", { body = body, firstline = firstline, lastline = lastline })
+function AST.chunk(ast, body, chunkname, firstline, lastline)
+    return build("Chunk", { body = body, chunkname = chunkname, firstline = firstline, lastline = lastline })
 end
 
 function AST.block_stmt(ast, body, firstline, lastline)

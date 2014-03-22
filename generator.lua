@@ -842,6 +842,7 @@ local function generate(tree, name)
    self.main = bc.Proto.new(bc.Proto.VARARG)
    self.dump = bc.Dump.new(self.main, name)
    self.ctx = self.main
+   self.chunkname = tree.chunkname
 
    function self:block_enter()
       self.ctx:enter()
