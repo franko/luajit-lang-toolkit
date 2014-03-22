@@ -451,8 +451,9 @@ local function parse_stmt(ast, ls)
         stmt = parse_while(ast, ls, line)
     elseif ls.token == 'TK_do' then
         ls:next()
-        stmt = parse_block(ast, ls)
+        local body = parse_block(ast, ls)
         lex_match(ls, 'TK_end', 'TK_do', line)
+        stmt = ast:do_stmt(body, line)
     elseif ls.token == 'TK_for' then
         stmt = parse_for(ast, ls, line)
     elseif ls.token == 'TK_repeat' then

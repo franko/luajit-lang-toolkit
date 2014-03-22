@@ -139,6 +139,10 @@ function AST.if_stmt(ast, tests, cons, else_branch, line)
     return build("IfStatement", { tests = tests, cons = cons, alternate = else_branch, line = line })
 end
 
+function AST.do_stmt(ast, body, line)
+    return build("DoStatement", { body = body, line = line })
+end
+
 function AST.while_stmt(ast, test, body, line)
     return build("WhileStatement", { test = test, body = body, line = line })
 end
