@@ -405,9 +405,9 @@ local function goto_label_append(self, label_name)
    return label
 end
 
-local function goto_fixup_append(self, label_name, pc)
+local function goto_fixup_append(self, label_name, source_line, pc)
    local scope = self.scope
-   local fixup = { name = label_name, basereg = self.freereg, need_uclo = false, pc = pc }
+   local fixup = { name = label_name, basereg = self.freereg, need_uclo = false, pc = pc, source_line = source_line }
    scope.goto_fixups[#scope.goto_fixups + 1] = fixup
 end
 
@@ -435,6 +435,7 @@ local function goto_label_bind(self, label_name)
    while fixup_list[i] do
       local fixup = fixup_list[i]
       if fixup.name == label_name then
+         if self.freereg > fixup.basereg then return fixup, fixup.basereg end
          self:fix_goto(fixup.pc, self.freereg, fixup.need_uclo, #self.code - fixup.pc)
          table.remove(fixup_list, i)
       else
@@ -713,6 +714,12 @@ function Proto.__index:lookup(name)
    -- Global variable.
    return nil, false
 end
+function Proto.__index:var_inverse_lookup(var)
+   for i = 1, #self.scope.actvars do
+      local xvar = self.scope.actvars[i]
+      if xvar.idx == var then return xvar end
+   end
+end
 function Proto.__index:param(...)
    local var = self:newvar(...)
    var.startpc = 0
@@ -823,7 +830,7 @@ function Proto.__index:fscope_end()
    for i = 1, #fixup_list do
       local fixup = fixup_list[i]
       fixup.need_uclo = fixup.need_uclo or scope.need_uclo
-      fixup.basereg = scope.outer.basereg
+      fixup.basereg = scope.basereg
       outer_list[#outer_list + 1] = fixup
    end
 end
@@ -832,7 +839,7 @@ function Proto.__index:fix_goto(pc, basereg, need_uclo, jump)
    local op = need_uclo and BC.UCLO or BC.JMP
    ins:rewrite(op, basereg, jump)
 end
-function Proto.__index:goto_jump(label_name)
+function Proto.__index:goto_jump(label_name, source_line)
    local label = goto_label_resolve(self, label_name)
    if label then -- backward jump
       local dest_scope, basereg = label.scope, label.basereg
@@ -841,17 +848,21 @@ function Proto.__index:goto_jump(label_name)
       self:emit(op, basereg, label.pc - #self.code - 1)
    else -- forward jump
       self:emit(BC.JMP, 0, NO_JMP)
-      goto_fixup_append(self, label_name, #self.code)
+      goto_fixup_append(self, label_name, source_line, #self.code)
    end
 end
 function Proto.__index:goto_label(label_name)
    if goto_label_resolve(self, label_name) then
-      -- TODO: ensure the error message is the same of LuaJIT
-      error("duplicate label name:", label_name)
+      return false, string.format("duplicate label '%s'", label_name)
    end
    local label = goto_label_append(self, label_name)
-   goto_label_bind(self, label_name)
-   return label
+   local goto_err, var_err = goto_label_bind(self, label_name)
+   if goto_err then
+      local var = self:var_inverse_lookup(var_err)
+      return false, string.format("<goto %s> jumps into the scope of local '%s'", label_name, var.name)
+   else
+      return true, label
+   end
 end
 function Proto.__index:loop_register(exit, exit_reg)
    self.scope.loop_exit = exit

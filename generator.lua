@@ -35,6 +35,10 @@ local cmpopinv = {
    ['~='] = { 'EQ', false },
 }
 
+local function lang_error(msg, chunkname, line)
+   error(string.format("LLT-ERROR%s:%d: %s", chunkname, line, msg), 0)
+end
+
 local MULTIRES = -1
 
 -- this should be considered like binary values to perform
@@ -562,11 +566,14 @@ function StatementRule:SendExpression(node)
 end
 
 function StatementRule:LabelStatement(node)
-   local label = self.ctx:goto_label(node.label)
+   local ok, label = self.ctx:goto_label(node.label)
+   if not ok then
+      lang_error(label, self.chunkname, node.line)
+   end
 end
 
 function StatementRule:GotoStatement(node)
-   self.ctx:goto_jump(node.label)
+   self.ctx:goto_jump(node.label, node.line)
 end
 
 function StatementRule:BlockStatement(node, if_exit)
@@ -1020,6 +1027,12 @@ local function generate(tree, name)
       if not self.ctx.explret then
          self.ctx:close_uvals()
          self.ctx:op_ret0()
+      end
+      local fixups = self.ctx.scope.goto_fixups
+      if #fixups > 0 then
+         local label = fixups[1]
+         local msg = string.format("undefined label '%s'", label.name)
+         lang_error(msg, self.chunkname, label.source_line)
       end
    end
 
