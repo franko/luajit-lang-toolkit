@@ -777,11 +777,19 @@ function StatementRule:ForInStatement(node)
 
    local loop, exit = util.genid(), util.genid()
 
-   local vars = node.init.names
-   local expr = node.iter
+   local vars = node.namelist.names
+   local iter_list = node.explist
 
-   self:expr_tomultireg(expr, 3) -- func, state, ctl
-   self.ctx:nextreg(3)
+   local iter_count = 0
+   for i = 1, #iter_list - 1 do
+      self:expr_toreg(iter_list[i], free + iter_count)
+      iter_count = iter_count + 1
+      self.ctx:setreg(free + iter_count)
+      if iter_count == 2 then break end
+   end
+
+   self:expr_tomultireg(iter_list[iter_count+1], 3 - iter_count) -- func, state, ctl
+   self.ctx:setreg(iter)
    self.ctx:jump(loop, self.ctx.freereg)
 
    self:loop_enter(exit, free)

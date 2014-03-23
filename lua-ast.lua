@@ -157,10 +157,8 @@ function AST.for_stmt(ast, var, init, last, step, body, line)
 end
 
 function AST.for_iter_stmt(ast, vars, exps, body, line)
-    local init = build("ForNames", { names = vars, line = line })
-    if #exps > 1 then error('NYI: iter with multiple expression list') end
-    local iter = exps[1]
-    return build("ForInStatement", { init = init, iter = iter, body = body, line = line })
+    local names = build("ForNames", { names = vars, line = line })
+    return build("ForInStatement", { namelist = names, explist = exps, body = body, line = line })
 end
 
 function AST.goto_stmt(ast, name, line)

@@ -361,12 +361,12 @@ local syntax = {
       kind = "ForInStatement",
       base = "Statement",
       properties = {
-         init = {
+         namelist = {
             type = "node",
             kind = "ForNames"
          },
-         iter = {
-            type = "node",
+         explist = {
+            type = "list",
             kind = "Expression"
          },
          body = {
