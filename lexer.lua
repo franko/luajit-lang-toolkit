@@ -30,7 +30,7 @@ local function error_lex(chunkname, tok, line, em, ...)
     if tok then
         msg = string.format("%s near '%s'", msg, tok)
     end
-    error(msg)
+    error("LLT-ERROR" .. msg, 0)
 end
 
 local function lex_error(ls, token, em, ...)
