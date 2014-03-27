@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import subprocess
 import StringIO
 from glob import glob
@@ -110,6 +111,21 @@ def compare_to_ref(name, fullname, output_test):
 		else:
 			write_diff(output_test, s, name, source)
 	return "fail", None
+
+if not os.path.isdir("tests/log"):
+	try:
+		print "Creating directory tests/log..."
+		os.mkdir("tests/log")
+	except:
+		print "Error creating directory tests/log."
+		sys.exit(1)
+
+try:
+	subprocess.check_call([luajit_exec, "-e", 'print("hello")'])
+except:
+	print "Error calling luajit."
+	print "Please make sure that luajit executable is in the current PATH."
+	sys.exit(1)
 
 for filename in glob("tests/log/*"):
 	os.remove(filename)
