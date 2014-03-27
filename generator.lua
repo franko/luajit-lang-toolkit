@@ -404,9 +404,11 @@ function LHSExpressionRule:Identifier(node)
    if uval then
       -- Ensure variable is marked as upvalue in proto and take
       -- upvalue index.
+      info.mutable = true
       local uv = self.ctx:upval(node.name)
       return {tag = 'upval', uv = uv}
    elseif info then
+      info.mutable = true
       return {tag = 'local', target = info.idx}
    else
       return {tag = 'global', name = node.name}

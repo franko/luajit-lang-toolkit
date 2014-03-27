@@ -626,7 +626,8 @@ function Proto.__index:write_body(buf)
       local uval = self.upvals[i]
       if uval.outer_idx then
          -- the upvalue refer to a local of the enclosing function
-         local uv = bit.bor(uval.outer_idx, 0x8000)
+         local btag = uval.vinfo.mutable and 0x8000 or 0xc000
+         local uv = bit.bor(uval.outer_idx, btag)
          buf:put_uint16(uv)
       else
          -- the upvalue refer to an upvalue of the enclosing function
@@ -685,6 +686,7 @@ function Proto.__index:newvar(name, dest)
       startpc  = #self.code;
       endpc    = #self.code;
       name     = name;
+      mutable  = false;
    }
    -- scoped variable info
    self.scope.actvars[name] = vinfo
