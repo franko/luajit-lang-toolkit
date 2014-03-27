@@ -1,0 +1,43 @@
+-- BYTECODE -- "closure-3b.lua":9-9
+0001    UGET     1   0      ; k
+0002    ADDVV    1   0   1
+0003    RET1     1   2
+
+-- BYTECODE -- "closure-3b.lua":2-16
+0001    KPRI     1   0
+0002    KSHORT   2   0
+0003    KSHORT   3   1
+0004    MOV      4   0
+0005    KSHORT   5   1
+0006    FORI     3 => 0024
+0007 => MULVV    7   6   6
+0008    KSHORT   8   3
+0009    POW      8   6   8
+0010    KSHORT   9   4
+0011    POW      9   6   9
+0012    MODVN   10   6   0  ; 7
+0013    ISNEN   10   1      ; 0
+0014    JMP     10 => 0020
+0015    DIVVN   10   6   0  ; 7
+0016    ADDVN   10  10   2  ; 1
+0017    FNEW     1   0      ; "closure-3b.lua":9
+0018    UCLO     0 => 0019
+0019 => RET1     1   2
+0020 => SUBVV   10   8   9
+0021    ADDVV    2   2  10
+0022    UCLO     6 => 0023
+0023 => FORL     3 => 0007
+0024 => RET1     1   2
+
+-- BYTECODE -- "closure-3b.lua":0-20
+0001    FNEW     0   0      ; "closure-3b.lua":2
+0002    MOV      1   0
+0003    KSHORT   2  10
+0004    CALL     1   2   2
+0005    GGET     2   1      ; "print"
+0006    MOV      3   1
+0007    KSHORT   4   3
+0008    CALL     3   0   2
+0009    CALLM    2   1   0
+0010    RET0     0   1
+

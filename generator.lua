@@ -35,6 +35,10 @@ local cmpopinv = {
    ['~='] = { 'EQ', false },
 }
 
+local function lang_error(msg, chunkname, line)
+   error(string.format("LLT-ERROR%s:%d: %s", chunkname, line, msg), 0)
+end
+
 local MULTIRES = -1
 
 -- this should be considered like binary values to perform
@@ -364,6 +368,7 @@ local function emit_call_expression(self, node, want, use_tail, use_self)
    if narg > 0 then
       local lastarg = node.arguments[narg]
       mres = self:expr_tomultireg(lastarg, MULTIRES)
+      self.ctx:nextreg()
    end
 
    if use_self then narg = narg + 1 end
@@ -400,9 +405,11 @@ function LHSExpressionRule:Identifier(node)
    if uval then
       -- Ensure variable is marked as upvalue in proto and take
       -- upvalue index.
+      info.mutable = true
       local uv = self.ctx:upval(node.name)
       return {tag = 'upval', uv = uv}
    elseif info then
+      info.mutable = true
       return {tag = 'local', target = info.idx}
    else
       return {tag = 'global', name = node.name}
@@ -562,13 +569,14 @@ function StatementRule:SendExpression(node)
 end
 
 function StatementRule:LabelStatement(node)
-   return self.ctx:here(node.label)
+   local ok, label = self.ctx:goto_label(node.label)
+   if not ok then
+      lang_error(label, self.chunkname, node.line)
+   end
 end
 
 function StatementRule:GotoStatement(node)
-   -- TODO: to be fixed to emit UCLO if needed
-   -- probably need to use scope_jump
-   return self.ctx:jump(node.label)
+   self.ctx:goto_jump(node.label, node.line)
 end
 
 function StatementRule:BlockStatement(node, if_exit)
@@ -758,7 +766,9 @@ function StatementRule:ForStatement(node)
    local loop = self.ctx:op_fori(base)
    self:loop_enter(exit, free)
    self.ctx:newvar(name)
+   self:block_enter()
    self:emit(node.body)
+   self:block_leave()
    self:loop_leave()
    self.ctx:op_forl(base, loop)
    self.ctx:here(exit)
@@ -770,11 +780,19 @@ function StatementRule:ForInStatement(node)
 
    local loop, exit = util.genid(), util.genid()
 
-   local vars = node.init.names
-   local expr = node.iter
+   local vars = node.namelist.names
+   local iter_list = node.explist
 
-   self:expr_tomultireg(expr, 3) -- func, state, ctl
-   self.ctx:nextreg(3)
+   local iter_count = 0
+   for i = 1, #iter_list - 1 do
+      self:expr_toreg(iter_list[i], free + iter_count)
+      iter_count = iter_count + 1
+      self.ctx:setreg(free + iter_count)
+      if iter_count == 2 then break end
+   end
+
+   self:expr_tomultireg(iter_list[iter_count+1], 3 - iter_count) -- func, state, ctl
+   self.ctx:setreg(iter)
    self.ctx:jump(loop, self.ctx.freereg)
 
    self:loop_enter(exit, free)
@@ -837,30 +855,19 @@ function StatementRule:Chunk(tree, name)
    self:close_proto()
 end
 
-local function dispatch(self, lookup, node, ...)
-   if type(node) ~= "table" then
-      error("not a table: "..tostring(node))
-   end
-   if not node.kind then
-      error("don't know what to do with: "..util.dump(node))
-   end
-   if not lookup[node.kind] then
-      error("no handler for "..node.kind)
-   end
-   return lookup[node.kind](self, node, ...)
-end
-
 local function generate(tree, name)
    local self = { line = 0 }
    self.main = bc.Proto.new(bc.Proto.VARARG)
    self.dump = bc.Dump.new(self.main, name)
    self.ctx = self.main
+   self.chunkname = tree.chunkname
 
    function self:block_enter()
       self.ctx:enter()
    end
 
    function self:block_leave(exit)
+      self.ctx:fscope_end()
       self.ctx:close_block(self.ctx.scope.basereg, exit)
       self.ctx:leave()
    end
@@ -890,7 +897,9 @@ local function generate(tree, name)
    end
 
    function self:emit(node, ...)
-      dispatch(self, StatementRule, node, ...)
+      local rule = StatementRule[node.kind]
+      if not rule then error("cannot find a statement rule for " .. node.kind) end
+      rule(self, node, ...)
       if node.line then self.ctx:line(node.line) end
    end
 
@@ -1029,6 +1038,12 @@ local function generate(tree, name)
       if not self.ctx.explret then
          self.ctx:close_uvals()
          self.ctx:op_ret0()
+      end
+      local fixups = self.ctx.scope.goto_fixups
+      if #fixups > 0 then
+         local label = fixups[1]
+         local msg = string.format("undefined label '%s'", label.name)
+         lang_error(msg, self.chunkname, label.source_line)
       end
    end
 

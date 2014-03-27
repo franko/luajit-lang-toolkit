@@ -36,8 +36,8 @@ function AST.function_decl(ast, path, args, body, proto)
     return build("AssignmentExpression", { left = { path }, right = { fn }, line = line })
 end
 
-function AST.chunk(ast, body, firstline, lastline)
-    return build("Chunk", { body = body, firstline = firstline, lastline = lastline })
+function AST.chunk(ast, body, chunkname, firstline, lastline)
+    return build("Chunk", { body = body, chunkname = chunkname, firstline = firstline, lastline = lastline })
 end
 
 function AST.block_stmt(ast, body, firstline, lastline)
@@ -128,8 +128,7 @@ function AST.break_stmt(ast, line)
 end
 
 function AST.label_stmt(ast, name, line)
-    local label = ident(name)
-    return build("LabelStatement", { label = label, line = line })
+    return build("LabelStatement", { label = name, line = line })
 end
 
 function AST.new_statement_expr(ast, expr, line)
@@ -138,6 +137,10 @@ end
 
 function AST.if_stmt(ast, tests, cons, else_branch, line)
     return build("IfStatement", { tests = tests, cons = cons, alternate = else_branch, line = line })
+end
+
+function AST.do_stmt(ast, body, line)
+    return build("DoStatement", { body = body, line = line })
 end
 
 function AST.while_stmt(ast, test, body, line)
@@ -154,10 +157,12 @@ function AST.for_stmt(ast, var, init, last, step, body, line)
 end
 
 function AST.for_iter_stmt(ast, vars, exps, body, line)
-    local init = build("ForNames", { names = vars, line = line })
-    if #exps > 1 then error('NYI: iter with multiple expression list') end
-    local iter = exps[1]
-    return build("ForInStatement", { init = init, iter = iter, body = body, line = line })
+    local names = build("ForNames", { names = vars, line = line })
+    return build("ForInStatement", { namelist = names, explist = exps, body = body, line = line })
+end
+
+function AST.goto_stmt(ast, name, line)
+    return build("GotoStatement", { label = name, line = line })
 end
 
 local function new_scope(parent_scope)

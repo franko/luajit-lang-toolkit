@@ -21,6 +21,9 @@ local syntax = {
          body = {
             type = "list",
             kind = "Statement"
+         },
+         chunkname = {
+            type = "string"
          }
       }
    },
@@ -251,8 +254,7 @@ local syntax = {
       base = "Statement",
       properties = {
          label = {
-            type = "node",
-            kind = "Identifier"
+            type = "string",
          }
       }
    },
@@ -261,8 +263,7 @@ local syntax = {
       base = "Statement",
       properties = {
          label = {
-            type = "node",
-            kind = "Identifier"
+            type = "string",
          }
       }
    },
@@ -360,12 +361,12 @@ local syntax = {
       kind = "ForInStatement",
       base = "Statement",
       properties = {
-         init = {
+         namelist = {
             type = "node",
             kind = "ForNames"
          },
-         iter = {
-            type = "node",
+         explist = {
+            type = "list",
             kind = "Expression"
          },
          body = {

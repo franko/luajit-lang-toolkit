@@ -435,6 +435,12 @@ local function parse_label(ast, ls)
     return ast:label_stmt(name, ls.linenumber)
 end
 
+local function parse_goto(ast, ls)
+    local line = ls.linenumber
+    local name = lex_str(ls)
+    return ast:goto_stmt(name, line)
+end
+
 -- Parse a statement. Returns the statement itself and a boolean that tells if it
 -- must be the last one in a chunk.
 local function parse_stmt(ast, ls)
@@ -446,8 +452,9 @@ local function parse_stmt(ast, ls)
         stmt = parse_while(ast, ls, line)
     elseif ls.token == 'TK_do' then
         ls:next()
-        stmt = parse_block(ast, ls)
+        local body = parse_block(ast, ls)
         lex_match(ls, 'TK_end', 'TK_do', line)
+        stmt = ast:do_stmt(body, line)
     elseif ls.token == 'TK_for' then
         stmt = parse_for(ast, ls, line)
     elseif ls.token == 'TK_repeat' then
@@ -524,7 +531,7 @@ local function parse_chunk(ast, ls, top_level)
     end
     local lastline = ls.linenumber
     if top_level then
-        return ast:chunk(body, 0, lastline)
+        return ast:chunk(body, ls.chunkname, 0, lastline)
     else
         return ast:block_stmt(body, firstline, lastline)
     end
