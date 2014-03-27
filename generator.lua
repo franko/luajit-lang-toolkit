@@ -368,6 +368,7 @@ local function emit_call_expression(self, node, want, use_tail, use_self)
    if narg > 0 then
       local lastarg = node.arguments[narg]
       mres = self:expr_tomultireg(lastarg, MULTIRES)
+      self.ctx:nextreg()
    end
 
    if use_self then narg = narg + 1 end
