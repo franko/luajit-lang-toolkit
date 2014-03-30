@@ -121,7 +121,7 @@ if not os.path.isdir("tests/log"):
 		sys.exit(1)
 
 try:
-	subprocess.check_call([luajit_exec, "-e", 'print("hello")'])
+	subprocess.check_call([luajit_exec, "-e", ""])
 except:
 	print "Error calling luajit."
 	print "Please make sure that luajit executable is in the current PATH."

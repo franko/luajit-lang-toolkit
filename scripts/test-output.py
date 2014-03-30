@@ -1,9 +1,25 @@
+import sys
 import os
 import re
 import subprocess
 
 test_dir = "tests"
 luajit_exec = "luajit"
+
+if not os.path.isdir("tests/log"):
+	try:
+		print "Creating directory tests/log..."
+		os.mkdir("tests/log")
+	except:
+		print "Error creating directory tests/log."
+		sys.exit(1)
+
+try:
+	subprocess.check_call([luajit_exec, "-e", ""])
+except:
+	print "Error calling luajit."
+	print "Please make sure that luajit executable is in the current PATH."
+	sys.exit(1)
 
 for dirpath, dirnames, filenames in os.walk(test_dir):
     for filename in sorted(filenames):
