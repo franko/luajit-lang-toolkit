@@ -584,7 +584,9 @@ function StatementRule:BlockStatement(node, if_exit)
    for i=1, #body - 1 do
       self:emit(body[i])
    end
-   self:emit(body[#body], if_exit)
+   if #body > 0 then
+      self:emit(body[#body], if_exit)
+   end
 end
 
 function StatementRule:DoStatement(node)
