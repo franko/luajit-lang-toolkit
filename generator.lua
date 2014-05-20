@@ -12,6 +12,8 @@
 local bc   = require('bytecode')
 local util = require('util')
 
+local const_eval = require("ast-const-eval")
+
 local BC = bc.BC
 
 -- comparison operators with corresponding instruction.
@@ -60,7 +62,6 @@ local ExpressionRule = { }
 local MultiExprRule = { }
 local LHSExpressionRule = { }
 local TestRule = { }
-local ConstRule = { }
 
 local function is_literal(node)
    return node.kind == 'Literal'
@@ -136,7 +137,7 @@ function MultiExprRule:Vararg(node, want)
 end
 
 local function expr_isk(self, node)
-   local const = self:const_eval_try(node)
+   local const = const_eval(node)
    if const then
       return true, const
    elseif node.kind == "Literal" then
@@ -232,16 +233,6 @@ local dirop = {
    ['/'] = 'DIV',
    ['%'] = 'MOD',
 }
-
-local function dirop_compute(o, a, b)
-   if     o == '+' then return a + b
-   elseif o == '-' then return a - b
-   elseif o == '*' then return a * b
-   elseif o == '/' and b ~= 0 then return a / b
-   elseif o == '%' then return a % b
-   elseif o == '^' then return a ^ b
-   end
-end
 
 function ExpressionRule:ConcatenateExpression(node, dest)
    local free = self.ctx.freereg
@@ -533,30 +524,6 @@ function TestRule:LogicalExpression(node, jmp, negate, store, dest)
    else
       self:test_emit(node.left, jmp, negate, lstore, dest)
       self:test_emit(node.right, jmp, negate, store, dest)
-   end
-end
-
-function ConstRule:Literal(node)
-   local v = node.value
-   if type(v) == 'number' then return v end
-end
-
-function ConstRule:BinaryExpression(node)
-   local o = node.operator
-   local a = self:const_eval_try(node.left)
-   if a then
-      local b = self:const_eval_try(node.right)
-      if b then
-         return dirop_compute(o, a, b)
-      end
-   end
-end
-
-function ConstRule:UnaryExpression(node)
-   local o = node.operator
-   if o == '-' then
-      local v = self:const_eval_try(node.argument)
-      if v then return -v end
    end
 end
 
@@ -960,7 +927,7 @@ local function generate(tree, name)
    -- to indicate if a tail call was used.
    -- This function always leave the freereg counter to its initial value.
    function self:expr_toreg(node, dest, tail)
-      local const_val = self:const_eval_try(node)
+      local const_val = const_eval(node)
       if const_val then
          self.ctx:op_load(dest, const_val)
       else
@@ -1005,7 +972,7 @@ local function generate(tree, name)
    -- an immediate constant. It does return a tag and then the value
    -- itself.
    function self:expr_toanyreg_tagged(node, emit)
-      local const_val = self:const_eval_try(node)
+      local const_val = const_eval(node)
       if emit.byte and const_val and is_byte_number(const_val) then
          return 'B', const_val
       elseif emit.number and const_val then
@@ -1027,13 +994,6 @@ local function generate(tree, name)
    function self:lhs_expr_emit(node)
       local rule = assert(LHSExpressionRule[node.kind], "undefined assignment rule for node type: \"" .. node.kind .. "\"")
       return rule(self, node)
-   end
-
-   function self:const_eval_try(node)
-      local rule = ConstRule[node.kind]
-      if rule then
-         return rule(self, node)
-      end
    end
 
    function self:close_proto()
