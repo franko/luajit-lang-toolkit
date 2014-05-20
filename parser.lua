@@ -1,3 +1,5 @@
+local operator = require("operator")
+
 local LJ_52 = false
 
 local IsLastStatement = { TK_return = true, TK_break  = true }
@@ -68,27 +70,6 @@ local function expr_bracket(ast, ls)
 	local v = expr(ast, ls)
 	lex_check(ls, ']')
     return v
-end
-
--- Priorities for each binary operator.
--- (left priority) * 256 + (right priority)
--- modulus is your friend
-local BinOp = {
-    ['+']  = 6 * 256 + 6, ['-']    = 6 * 256 + 6, ['*'] = 7 * 256 + 7, ['/'] = 7 * 256 + 7, ['%'] = 7 * 256 + 7,
-    ['^']  = 10* 256 + 9, TK_concat= 5 * 256 + 4, -- POW CONCAT (right associative)
-    TK_eq  = 3 * 256 + 3, TK_ne    = 3 * 256 + 3,
-    ['<']  = 3 * 256 + 3, TK_ge    = 3 * 256 + 3, ['>'] = 3 * 256 + 3, TK_le = 3 * 256 + 3,
-    TK_and = 2 * 256 + 2, TK_or    = 1 * 256 + 1,
-}
-
-local UNARY_PRIORITY = 8
-
-local function left_priority(op)
-    return bit.rshift(op, 8)
-end
-
-local function right_priority(op)
-    return bit.band(op, 0xff)
 end
 
 function expr_table(ast, ls)
@@ -163,7 +144,7 @@ function expr_unop(ast, ls)
     local tk = ls.token
     if tk == 'TK_not' or tk == '-' or tk == '#' then
         ls:next()
-        local v = expr_binop(ast, ls, UNARY_PRIORITY)
+        local v = expr_binop(ast, ls, operator.unary_priority)
         return ast:expr_unop(ls.token2str(tk), v)
     else
         return expr_simple(ast, ls)
@@ -173,11 +154,11 @@ end
 -- Parse binary expressions with priority higher than the limit.
 function expr_binop(ast, ls, limit)
 	local v = expr_unop(ast, ls)
-    local op = ls.token
-    while BinOp[op] and left_priority(BinOp[op]) > limit do
+    local op = ls.token2str(ls.token)
+    while operator.is_binop(op) and operator.left_priority(op) > limit do
         ls:next()
-        local v2, nextop = expr_binop(ast, ls, right_priority(BinOp[op]))
-        v = ast:expr_binop(ls.token2str(op), v, v2)
+        local v2, nextop = expr_binop(ast, ls, operator.right_priority(op))
+        v = ast:expr_binop(op, v, v2)
         op = nextop
     end
     return v, op
