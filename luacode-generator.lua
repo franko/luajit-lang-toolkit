@@ -21,7 +21,12 @@ local function comma_sep_list(ls, f)
     return concat(strls, ", ")
 end
 
-function ExpressionRule:Identifier(node)
+local function as_parameter(node)
+    return node.kind == "Vararg" and "..." or node.name
+end
+
+function
+ ExpressionRule:Identifier(node)
     return node.name, operator.ident_priority
 end
 
@@ -55,8 +60,7 @@ function ExpressionRule:BinaryExpression(node)
 end
 
 function ExpressionRule:Table(node, dest)
-    local function to_expr(node) return self:expr_emit(node) end
-    local array = comma_sep_list(node.array_entries, to_expr)
+    local array = self:expr_list(node.array_entries)
     local hash = { }
     for k = 1, #node.hash_keys do
         local key = node.hash_keys[k]
@@ -77,13 +81,8 @@ function ExpressionRule:CallExpression(node, want, tail)
     if prio < operator.ident_priority then
         callee = "(" .. callee .. ")"
     end
-    local args = self:expr_list_emit(node.arguments)
-    local exp = format("%s(%s)", callee, comma_sep_list(args))
+    local exp = format("%s(%s)", callee, self:expr_list(node.arguments))
     return exp, operator.ident_priority
-end
-
-local function as_parameter(node)
-    return node.kind == "Vararg" and "..." or node.name
 end
 
 function StatementRule:FunctionDeclaration(node)
@@ -134,12 +133,10 @@ function StatementRule:IfStatement(node)
 end
 
 function StatementRule:LocalDeclaration(node)
-    local exps = self:expr_list_emit(node.expressions)
-    local function var_name(id) return id.name end
     local line
-    local names = comma_sep_list(node.names, var_name)
-    if #exps > 0 then
-        line = format("local %s = %s", names, comma_sep_list(exps))
+    local names = comma_sep_list(node.names, as_parameter)
+    if #node.expressions > 0 then
+        line = format("local %s = %s", names, self:expr_list(node.expressions))
     else
         line = format("local %s", names)
     end
@@ -147,9 +144,7 @@ function StatementRule:LocalDeclaration(node)
 end
 
 function StatementRule:AssignmentExpression(node)
-    local lhs = self:lhs_expr_list_emit(node.left)
-    local exps = self:expr_list_emit(node.right)
-    local line = format("%s = %s", comma_sep_list(lhs), comma_sep_list(exps))
+    local line = format("%s = %s", self:expr_list(node.left), self:expr_list(node.right))
     self:add_line(line)
 end
 
@@ -167,8 +162,7 @@ function StatementRule:ExpressionStatement(node)
 end
 
 function StatementRule:ReturnStatement(node)
-    local exps = self:expr_list_emit(node.arguments)
-    local line = format("return %s", comma_sep_list(exps))
+    local line = format("return %s", self:expr_list(node.arguments))
     self:add_line(line)
 end
 
@@ -176,6 +170,10 @@ local function generate(tree, name)
 
     local self = { line = 0, code = { }, indent = 0 }
     self.chunkname = tree.chunkname
+
+    local function to_expr(node)
+        return self:expr_emit(node)
+    end
 
     function self:compile_code()
         return concat(self.code, "\n")
@@ -213,18 +211,9 @@ local function generate(tree, name)
         return rule(self, node)
     end
 
-    function self:expr_list_emit(node_list)
-        local ls = { }
-        for i = 1, #node_list do
-            -- Store the expression and discard the priority returned as a
-            -- second value.
-            ls[i] = self:expr_emit(node_list[i])
-        end
-        return ls
+    function self:expr_list(exps)
+        return comma_sep_list(exps, to_expr)
     end
-
-    self.lhs_expr_list_emit = self.expr_list_emit
-    self.lhs_expr_emit = self.expr_emit
 
     function self:emit(node)
         local rule = StatementRule[node.kind]
