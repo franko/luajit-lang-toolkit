@@ -11,6 +11,10 @@ local binop = {
 
 local unary_priority = 8
 
+-- Pseudo priority of a simple identifier. Should be higher than any
+-- others operator's priority.
+local ident_priority = 16
+
 local function is_binop(op)
 	return binop[op]
 end
@@ -28,4 +32,5 @@ return {
 	left_priority  = left_priority,
 	right_priority = right_priority,
     unary_priority = unary_priority,
+    ident_priority = ident_priority,
 }
