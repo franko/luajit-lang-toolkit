@@ -395,7 +395,7 @@ local syntax = {
       properties = {
          id = {
             type = "node",
-            kind = "Identifier"
+            kind = { "MemberExpression", "Identifier" },
          },
          body = {
             type = "node",

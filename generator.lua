@@ -303,15 +303,22 @@ function ExpressionRule:MemberExpression(node, dest)
 end
 
 function StatementRule:FunctionDeclaration(node)
-   local name = node.id.name
-   local dest
+   local path = node.id
    if node.locald then
-      dest = self.ctx:newvar(name).idx
-   else
-      dest = self.ctx.freereg
+      self.ctx:newvar(path.name)
    end
-
-   ExpressionRule.FunctionExpression(self, node, dest)
+   local lhs = self:lhs_expr_emit(path)
+   local free = self.ctx.freereg
+   if lhs.tag == 'upval' then
+      local tag, expr = self:expr_toanyreg_tagged(node, EXPR_EMIT_VSNP)
+      self.ctx:op_uset(lhs.uv, tag, expr)
+   elseif lhs.tag == 'local' then
+      self:expr_toreg(node, lhs.target)
+   else
+      local expr = self:expr_toanyreg(node)
+      self:assign(lhs, expr)
+   end
+   self.ctx.freereg = free
 end
 
 function ExpressionRule:FunctionExpression(node, dest)
@@ -333,6 +340,8 @@ function ExpressionRule:FunctionExpression(node, dest)
    self.ctx.freereg = free
    self.ctx:op_fnew(dest, func.idx)
 end
+
+ExpressionRule.FunctionDeclaration = ExpressionRule.FunctionExpression
 
 local function emit_call_expression(self, node, want, use_tail, use_self)
    local base = self.ctx.freereg
