@@ -25,8 +25,7 @@ local function as_parameter(node)
     return node.kind == "Vararg" and "..." or node.name
 end
 
-function
- ExpressionRule:Identifier(node)
+function ExpressionRule:Identifier(node)
     return node.name, operator.ident_priority
 end
 
@@ -86,17 +85,23 @@ function ExpressionRule:CallExpression(node, want, tail)
 end
 
 function StatementRule:FunctionDeclaration(node)
-    local header = format("function %s(%s)", node.id.name, comma_sep_list(node.params, as_parameter))
+    self:proto_enter()
+    local name = self:expr_emit(node.id)
+    local header = format("function %s(%s)", name, comma_sep_list(node.params, as_parameter))
     if node.locald then
         header = "local " .. header
     end
     self:add_section(header, node.body)
+    local child_proto = self:proto_leave()
+    self.proto:merge(child_proto)
 end
 
 function ExpressionRule:FunctionExpression(node)
+    self:proto_enter()
     local header = format("function(%s)", comma_sep_list(node.params, as_parameter))
-    error("NYI")
-    -- self:add_section(header, node.body)
+    self:add_section(header, node.body)
+    local child_proto = self:proto_leave()
+    return child_proto:inline(self.proto.indent)
 end
 
 function StatementRule:CallExpression(node)
@@ -166,10 +171,45 @@ function StatementRule:ReturnStatement(node)
     self:add_line(line)
 end
 
+local function proto_inline(proto, indent)
+    local ls = { }
+    for k = 1, #proto.code do
+        local indent_str = k == 1 and "" or string.rep("    ", indent)
+        ls[k] = indent_str .. proto.code[k]
+    end
+    return concat(ls, "\n")
+end
+
+local function proto_merge(proto, child)
+    for k = 1, #child.code do
+        local line = child.code[k]
+        local indent_str = string.rep("    ", proto.indent)
+        proto.code[#proto.code + 1] = indent_str .. line
+    end
+end
+
+local function proto_new(parent)
+    local proto = { code = { }, indent = 0, parent = parent }
+    proto.inline = proto_inline
+    proto.merge = proto_merge
+    return proto
+end
+
 local function generate(tree, name)
 
-    local self = { line = 0, code = { }, indent = 0 }
+    local self = { line = 0 }
+    self.proto = proto_new()
     self.chunkname = tree.chunkname
+
+    function self:proto_enter()
+        self.proto = proto_new(self.proto)
+    end
+
+    function self:proto_leave()
+        local proto = self.proto
+        self.proto = proto.parent
+        return proto
+    end
 
     local function to_expr(node)
         return self:expr_emit(node)
@@ -180,11 +220,13 @@ local function generate(tree, name)
     end
 
     function self:indent_more()
-        self.indent = self.indent + 1
+        local proto = self.proto
+        proto.indent = proto.indent + 1
     end
 
     function self:indent_less()
-        self.indent = self.indent - 1
+        local proto = self.proto
+        proto.indent = proto.indent - 1
     end
 
     function self:line(line)
@@ -192,8 +234,9 @@ local function generate(tree, name)
     end
 
     function self:add_line(line)
-        local indent = string.rep("    ", self.indent)
-        self.code[#self.code + 1] = indent .. line
+        local proto = self.proto
+        local indent = string.rep("    ", proto.indent)
+        proto.code[#proto.code + 1] = indent .. line
     end
 
     function self:add_section(header, body, omit_end)
@@ -230,7 +273,7 @@ local function generate(tree, name)
 
     self:emit(tree)
 
-    return self:compile_code()
+    return self:proto_leave():inline(0)
 end
 
 return generate
