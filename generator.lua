@@ -308,17 +308,7 @@ function StatementRule:FunctionDeclaration(node)
       self.ctx:newvar(path.name)
    end
    local lhs = self:lhs_expr_emit(path)
-   local free = self.ctx.freereg
-   if lhs.tag == 'upval' then
-      local tag, expr = self:expr_toanyreg_tagged(node, EXPR_EMIT_VSNP)
-      self.ctx:op_uset(lhs.uv, tag, expr)
-   elseif lhs.tag == 'local' then
-      self:expr_toreg(node, lhs.target)
-   else
-      local expr = self:expr_toanyreg(node)
-      self:assign(lhs, expr)
-   end
-   self.ctx.freereg = free
+   self:expr_tolhs(lhs, node)
 end
 
 function ExpressionRule:FunctionExpression(node, dest)
@@ -667,26 +657,19 @@ function StatementRule:AssignmentExpression(node)
 
    local i = nexps
    if slots == 1 then
-      if lhs[i].tag == 'upval' then
-         local tag, expr = self:expr_toanyreg_tagged(node.right[i], EXPR_EMIT_VSNP)
-         self.ctx:op_uset(lhs[i].uv, tag, expr)
-         nvars = nvars - 1
-      elseif lhs[i].tag == 'local' then
-         self:expr_toreg(node.right[i], lhs[i].target)
-         nvars = nvars - 1
-      else
-         exprs[i] = self:expr_toanyreg(node.right[i])
-      end
+      -- Case where (nb of expression) >= (nb of variables).
+      self:expr_tolhs(lhs[i], node.right[i])
    else
+      -- Case where (nb of expression) < (nb of variables). In this case
+      -- we cosider that the last expression can generate multiple values.
       local exp_base = self.ctx.freereg
       self:expr_tomultireg(node.right[i], slots)
       for k = slots - 1, 0, -1 do
          self:assign(lhs[i + k], exp_base + k)
       end
-      nvars = nvars - slots
    end
 
-   for i = nvars, 1, -1 do
+   for i = nvars - slots, 1, -1 do
       self:assign(lhs[i], exprs[i])
    end
 
@@ -998,6 +981,21 @@ local function generate(tree, name)
          -- fall through
       end
       return 'V', self:expr_toanyreg(node)
+   end
+
+   -- Emit code to store an expression in the given LHS.
+   function self:expr_tolhs(lhs, expr)
+      local free = self.ctx.freereg
+      if lhs.tag == 'upval' then
+         local tag, expr = self:expr_toanyreg_tagged(expr, EXPR_EMIT_VSNP)
+         self.ctx:op_uset(lhs.uv, tag, expr)
+      elseif lhs.tag == 'local' then
+         self:expr_toreg(expr, lhs.target)
+      else
+         local reg = self:expr_toanyreg(expr)
+         self:assign(lhs, reg)
+      end
+      self.ctx.freereg = free
    end
 
    function self:lhs_expr_emit(node)
