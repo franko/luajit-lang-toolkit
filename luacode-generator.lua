@@ -48,6 +48,10 @@ function ExpressionRule:MemberExpression(node)
     return exp, operator.ident_priority
 end
 
+function ExpressionRule:Vararg()
+    return "...", operator.ident_priority
+end
+
 function ExpressionRule:BinaryExpression(node)
     local oper = node.operator
     local prio = operator.left_priority(oper)
@@ -56,6 +60,25 @@ function ExpressionRule:BinaryExpression(node)
     local ap = a_prio < prio and format("(%s)", a) or a
     local bp = b_prio < prio and format("(%s)", b) or b
     return format("%s %s %s", ap, oper, bp), prio
+end
+
+function ExpressionRule:UnaryExpression(node)
+    local arg, arg_prio = self:expr_emit(node.argument)
+    local op_prio = operator.left_priority(node.operator)
+    if arg_prio < op_prio then arg = format("(%s)", arg) end
+    return format("%s%s", node.operator, arg)
+end
+
+ExpressionRule.LogicalExpression = ExpressionRule.BinaryExpression
+
+function ExpressionRule:ConcatenateExpression(node)
+    local ls = {}
+    local cat_prio = operator.left_priority("..")
+    for k = 1, #node.terms do
+        ls[k], kprio = self:expr_emit(node.terms[k])
+        if kprio < cat_prio then ls[k] = format("(%s)", ls[k]) end
+    end
+    return concat(ls, " .. "), cat_prio
 end
 
 function ExpressionRule:Table(node, dest)
@@ -123,6 +146,23 @@ function StatementRule:ForStatement(node)
     self:add_section(header, node.body)
 end
 
+function StatementRule:WhileStatement(node)
+    local test = self:expr_emit(node.test)
+    local header = format("while %s do", test)
+    self:add_section(header, node.body)
+end
+
+function StatementRule:RepeatStatement(node)
+    self:add_section("repeat", node.body, true)
+    local test = self:expr_emit(node.test)
+    local until_line = format("until %s", test)
+    self:add_line(until_line)
+end
+
+function StatementRule:BreakStatement()
+    self:add_line("break")
+end
+
 function StatementRule:IfStatement(node)
     local ncons = #node.tests
     for i = 1, ncons do
@@ -169,6 +209,14 @@ end
 function StatementRule:ReturnStatement(node)
     local line = format("return %s", self:expr_list(node.arguments))
     self:add_line(line)
+end
+
+function StatementRule:LabelStatement(node)
+   self:add_line("::" .. node.label .. "::")
+end
+
+function StatementRule:GotoStatement(node)
+   self:add_line("goto " .. node.label)
 end
 
 local function proto_inline(proto, indent)
