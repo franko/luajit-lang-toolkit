@@ -149,6 +149,13 @@ function StatementRule:ForStatement(node)
     self:add_section(header, node.body)
 end
 
+function StatementRule:ForInStatement(node)
+    local vars = comma_sep_list(node.namelist.names, as_parameter)
+    local explist = self:expr_list(node.explist)
+    local header = format("for %s in %s do", vars, explist)
+    self:add_section(header, node.body)
+end
+
 function StatementRule:WhileStatement(node)
     local test = self:expr_emit(node.test)
     local header = format("while %s do", test)
