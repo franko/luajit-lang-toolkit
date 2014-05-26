@@ -93,9 +93,12 @@ function ExpressionRule:Table(node, dest)
             hash[k] = format("[%s] = %s", self:expr_emit(key), value)
         end
     end
-    local hash_str = comma_sep_list(hash)
-    local cont = array == "" and hash_str or array .. ", " .. hash_str
-    return "{" .. cont .. "}", operator.ident_priority
+    local content = array
+    if #hash > 0 then
+        local hash_str = comma_sep_list(hash)
+        content = content ~= "" and (content .. ", " .. hash_str) or hash_str
+    end
+    return "{" .. content .. "}", operator.ident_priority
 end
 
 function ExpressionRule:CallExpression(node, want, tail)
