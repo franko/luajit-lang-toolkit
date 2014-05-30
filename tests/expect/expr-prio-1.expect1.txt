@@ -1,0 +1,44 @@
+-- BYTECODE -- "expr-prio-1.lua":0-14
+0001    KSHORT   0   2
+0002    KSHORT   1   3
+0003    ADDNV    2   0   0  ; 2
+0004    MULVV    2   2   1
+0005    MULNV    3   1   0  ; 2
+0006    ADDVV    3   0   3
+0007    KSHORT   4   2
+0008    POW      5   0   1
+0009    POW      4   4   5
+0010    KSHORT   5   2
+0011    POW      5   5   0
+0012    POW      5   5   1
+0013    MULNV    6   0   0  ; 2
+0014    DIVVV    6   6   1
+0015    DIVVV    7   0   1
+0016    MULNV    7   7   0  ; 2
+0017    ADDNV    8   0   0  ; 2
+0018    ADDVV    8   8   1
+0019    ADDVV    9   0   1
+0020    ADDNV    9   9   0  ; 2
+0021    UNM     10   0
+0022    MULVV   10  10   1
+0023    KSHORT  11   2
+0024    POW     11   0  11
+0025    UNM     11  11
+0026    UNM     12   0
+0027    KSHORT  13   2
+0028    POW     12  12  13
+0029    ADDVV   11  11  12
+0030    GGET    12   0      ; "print"
+0031    MOV     13   2
+0032    MOV     14   3
+0033    MOV     15   4
+0034    MOV     16   5
+0035    MOV     17   6
+0036    MOV     18   7
+0037    MOV     19   8
+0038    MOV     20   9
+0039    MOV     21  10
+0040    MOV     22  11
+0041    CALL    12   1  11
+0042    RET0     0   1
+
