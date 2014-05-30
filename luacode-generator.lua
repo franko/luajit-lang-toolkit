@@ -10,6 +10,10 @@ local function is_string(node)
     return node.kind == "Literal" and type(node.value) == "string"
 end
 
+local function is_const(node, val)
+    return node.kind == "Literal" and node.value == val
+end
+
 local function comma_sep_list(ls, f)
     local strls
     if f then
@@ -54,19 +58,20 @@ end
 
 function ExpressionRule:BinaryExpression(node)
     local oper = node.operator
-    local prio = operator.left_priority(oper)
+    local lprio = operator.left_priority(oper)
+    local rprio = operator.right_priority(oper)
     local a, a_prio = self:expr_emit(node.left)
     local b, b_prio = self:expr_emit(node.right)
-    local ap = a_prio < prio and format("(%s)", a) or a
-    local bp = b_prio < prio and format("(%s)", b) or b
-    return format("%s %s %s", ap, oper, bp), prio
+    local ap = a_prio <  lprio and format("(%s)", a) or a
+    local bp = b_prio <= lprio and format("(%s)", b) or b
+    return format("%s %s %s", ap, oper, bp), rprio
 end
 
 function ExpressionRule:UnaryExpression(node)
     local arg, arg_prio = self:expr_emit(node.argument)
-    local op_prio = operator.left_priority(node.operator)
+    local op_prio = operator.unary_priority
     if arg_prio < op_prio then arg = format("(%s)", arg) end
-    return format("%s%s", node.operator, arg)
+    return format("%s%s", node.operator, arg), operator.unary_priority
 end
 
 ExpressionRule.LogicalExpression = ExpressionRule.BinaryExpression
@@ -81,7 +86,7 @@ function ExpressionRule:ConcatenateExpression(node)
     return concat(ls, " .. "), cat_prio
 end
 
-function ExpressionRule:Table(node, dest)
+function ExpressionRule:Table(node)
     local array = self:expr_list(node.array_entries)
     local hash = { }
     for k = 1, #node.hash_keys do
@@ -101,12 +106,22 @@ function ExpressionRule:Table(node, dest)
     return "{" .. content .. "}", operator.ident_priority
 end
 
-function ExpressionRule:CallExpression(node, want, tail)
+function ExpressionRule:CallExpression(node)
     local callee, prio = self:expr_emit(node.callee)
     if prio < operator.ident_priority then
         callee = "(" .. callee .. ")"
     end
     local exp = format("%s(%s)", callee, self:expr_list(node.arguments))
+    return exp, operator.ident_priority
+end
+
+function ExpressionRule:SendExpression(node)
+    local rec, prio = self:expr_emit(node.receiver)
+    if prio < operator.ident_priority then
+        rec = "(" .. rec .. ")"
+    end
+    local method = node.method.name
+    local exp = format("%s:%s(%s)", rec, method, self:expr_list(node.arguments))
     return exp, operator.ident_priority
 end
 
@@ -127,7 +142,7 @@ function ExpressionRule:FunctionExpression(node)
     local header = format("function(%s)", comma_sep_list(node.params, as_parameter))
     self:add_section(header, node.body)
     local child_proto = self:proto_leave()
-    return child_proto:inline(self.proto.indent)
+    return child_proto:inline(self.proto.indent), 0
 end
 
 function StatementRule:CallExpression(node)
@@ -140,7 +155,7 @@ function StatementRule:ForStatement(node)
     local istart = self:expr_emit(init.value)
     local iend = self:expr_emit(node.last)
     local header
-    if init.step then
+    if node.step and not is_const(node.step, 1) then
         local step = self:expr_emit(node.step)
         header = format("for %s = %s, %s, %s do", init.id.name, istart, iend, step)
     else
@@ -154,6 +169,10 @@ function StatementRule:ForInStatement(node)
     local explist = self:expr_list(node.explist)
     local header = format("for %s in %s do", vars, explist)
     self:add_section(header, node.body)
+end
+
+function StatementRule:DoStatement(node)
+    self:add_section("do", node.body)
 end
 
 function StatementRule:WhileStatement(node)
