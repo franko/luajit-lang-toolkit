@@ -1,3 +1,11 @@
+--
+-- luacode-generator.lua
+--
+-- This file is part of the LuaJIT Language Toolkit.
+--
+-- Module to generate the Lua code that corresponds to a given Lua AST Tree.
+-- Can be used as an alternative to the bytecode generator.
+
 local operator = require("operator")
 
 local StatementRule = { }

@@ -124,6 +124,19 @@ Once the AST tree is generated it can be feeded to the bytecode generator module
 The bytecode generator is based on the original work of Richard Hundt for the Nyanga programming language.
 It was greatly modified by myself to produce optimized code similar to what LuaJIT generate itself.
 
+Alternative Lua Code generator
+------------------------------
+
+Instead of passing the AST tree to the bytecode generator an alternative module can be used to generate Lua code.
+The module is called "luacode-generator" and can be used exactly like the bytecode generator.
+
+The Lua code generator has the advantage of being more simple and more safe as the code is parsed directly by LuaJIT ensuring from the beginning complete compatibility of the bytecode.
+
+Currently the Lua Code Generator backend does not preserve the line numbers of the original source code. This is meant to be fixed in the future.
+
+Use this backend instead of the bytecode generator if you prefer to have a more safe backend to convert the Lua AST to code.
+The module can be used also to pretty-printing a Lua AST tree since the code itself is propably the most human readable representation of the AST tree.
+
 Running the Application
 ---
 
