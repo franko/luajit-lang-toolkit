@@ -234,10 +234,6 @@ function StatementRule:Chunk(node)
     self:list_emit(node.body)
 end
 
-function StatementRule:BlockStatement(node)
-    self:list_emit(node.body)
-end
-
 function StatementRule:ExpressionStatement(node)
     local line = self:expr_emit(node.expression)
     self:add_line(line)
@@ -327,7 +323,7 @@ local function generate(tree, name)
     function self:add_section(header, body, omit_end)
         self:add_line(header)
         self:indent_more()
-        self:emit(body)
+        self:list_emit(body)
         self:indent_less()
         if not omit_end then
             self:add_line("end")

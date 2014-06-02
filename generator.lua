@@ -322,7 +322,7 @@ function ExpressionRule:FunctionExpression(node, dest)
          self.ctx:param(node.params[i].name)
       end
    end
-   self:emit(node.body)
+   self:block_emit(node.body)
    self:close_proto()
    self.ctx:set_line(node.firstline, node.lastline)
 
@@ -545,19 +545,9 @@ function StatementRule:GotoStatement(node)
    self.ctx:goto_jump(node.label, node.line)
 end
 
-function StatementRule:BlockStatement(node, if_exit)
-   local body = node.body
-   for i=1, #body - 1 do
-      self:emit(body[i])
-   end
-   if #body > 0 then
-      self:emit(body[#body], if_exit)
-   end
-end
-
 function StatementRule:DoStatement(node)
    self:block_enter()
-   self:emit(node.body)
+   self:block_emit(node.body)
    self:block_leave()
 end
 
@@ -581,7 +571,7 @@ function StatementRule:IfStatement(node, root_exit)
       self:test_emit(test, next_test)
 
       self:block_enter()
-      self:emit(block, bexit)
+      self:block_emit(block, bexit)
       self:block_leave(bexit)
 
       self.ctx:here(next_test)
@@ -590,7 +580,7 @@ function StatementRule:IfStatement(node, root_exit)
 
    if node.alternate then
       self:block_enter()
-      self:emit(node.alternate)
+      self:block_emit(node.alternate)
       self:block_leave()
    end
    if exit and exit == local_exit then
@@ -682,7 +672,7 @@ function StatementRule:WhileStatement(node)
    self.ctx:here(loop)
    self:test_emit(node.test, exit)
    self.ctx:loop(exit)
-   self:emit(node.body)
+   self:block_emit(node.body)
    self.ctx:jump(loop, free)
    self.ctx:here(exit)
    self:loop_leave()
@@ -694,7 +684,7 @@ function StatementRule:RepeatStatement(node)
    self:loop_enter(exit, free)
    self.ctx:here(loop)
    self.ctx:loop(exit)
-   self:emit(node.body)
+   self:block_emit(node.body)
    self:test_emit(node.test, loop)
    self.ctx:here(exit)
    self:loop_leave()
@@ -728,7 +718,7 @@ function StatementRule:ForStatement(node)
    self:loop_enter(exit, free)
    self.ctx:newvar(name)
    self:block_enter()
-   self:emit(node.body)
+   self:block_emit(node.body)
    self:block_leave()
    self:loop_leave()
    self.ctx:op_forl(base, loop)
@@ -765,7 +755,7 @@ function StatementRule:ForInStatement(node)
    end
 
    local ltop = self.ctx:here(util.genid())
-   self:emit(node.body)
+   self:block_emit(node.body)
    self:loop_leave()
    self.ctx:here(loop)
    self.ctx:op_iterc(iter, #vars)
@@ -809,10 +799,8 @@ function StatementRule:ReturnStatement(node)
    end
 end
 
-function StatementRule:Chunk(tree, name)
-   for i=1, #tree.body do
-      self:emit(tree.body[i])
-   end
+function StatementRule:Chunk(node, name)
+   self:block_emit(node.body)
    self:close_proto()
 end
 
@@ -862,6 +850,16 @@ local function generate(tree, name)
       if not rule then error("cannot find a statement rule for " .. node.kind) end
       rule(self, node, ...)
       if node.line then self.ctx:line(node.line) end
+   end
+
+   function self:block_emit(stmts, if_exit)
+      local n = #stmts
+      for i = 1, n - 1 do
+         self:emit(stmts[i])
+      end
+      if n > 0 then
+         self:emit(stmts[n], if_exit)
+      end
    end
 
    -- Emit the code to evaluate "node" and perform a conditional

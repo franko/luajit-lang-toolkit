@@ -1,3 +1,37 @@
+--
+-- Each entry of "syntax" describe a node of the AST tree.
+-- The "properties" field gives the specification for the properties
+-- of each node.
+--
+-- Each "properties" entry is of the form:
+--
+-- <name> = <ast_element_type>
+--
+-- where <ast_element_type> is a recursive type defined as follow:
+-- it can be:
+--
+-- "Expression",
+-- "Statement",
+-- ...
+-- to indicate a specific kind of "node". Alternatively a node can be
+-- specified as;
+--
+-- { type = "node", kind = "Statement" }
+--
+-- In addition an <ast_element_type> can be also:
+--
+-- { type = "literal", value = "string" }
+--
+-- { type = "enum", values = {"a", "b", "c"} }
+--
+-- { type = "list", kind = <ast_element_type> }
+--
+-- { type = "choice", values = {<ast_element_type>, <ast_element_type>, ...} }
+--
+-- The latter two are defined recursively. A "list" is Lua table of element of a
+-- given type. The "choice" allow an element to be either of one type or another.
+--
+
 local syntax = {
    Node = {
       kind = "Node",
@@ -13,7 +47,6 @@ local syntax = {
       base = "Node",
       abstract = true,
    },
-
    Chunk = {
       kind = "Chunk",
       base = "Node",
@@ -22,18 +55,14 @@ local syntax = {
             type = "list",
             kind = "Statement"
          },
-         chunkname = {
-            type = "string"
-         }
+         chunkname = { type = "literal", value = "string" },
       }
    },
    Identifier = {
       kind = "Identifier",
       base = "Expression",
       properties = {
-         name = {
-            type = "string"
-         }
+         name = { type = "literal", value = "string" },
       }
    },
    Vararg = {
@@ -52,14 +81,8 @@ local syntax = {
                "==", "~=", ">=", ">", "<=", "<",
             }
          },
-         left = {
-            type = "node",
-            kind = "Expression",
-         },
-         right = {
-            type = "node",
-            kind = "Expression",
-         }
+         left = "Expression",
+         right = "Expression",
       }
    },
    ConcatenateExpression = {
@@ -80,10 +103,7 @@ local syntax = {
             type   = "enum",
             values = { "not", "-", "#", "'" },
          },
-         argument = {
-            type = "node",
-            kind = "Expression"
-         }
+         argument = "Expression",
       }
    },
    AssignmentExpression = {
@@ -92,7 +112,7 @@ local syntax = {
       properties = {
          left = {
             type = "list",
-            kind = { "MemberExpression", "Identifier" },
+            kind = { type = "choice", values = { "MemberExpression", "Identifier" } },
          },
          right = {
             type = "list",
@@ -108,30 +128,19 @@ local syntax = {
             type = "enum",
             values = { "and", "or" }
          },
-         left = {
-            type = "node",
-            kind = "Expression"
-         },
-         right = {
-            type = "node",
-            kind = "Expression"
-         }
+         left  = "Expression",
+         right = "Expression",
       }
    },
    MemberExpression = {
       kind = "MemberExpression",
       base = "Expression",
       properties = {
-         object = {
-            type = "node",
-            kind = "Expression"
-         },
-         property = {
-            type = "node",
-            kind = "Expression"
-         },
+         object = "Expression",
+         property = "Expression",
          computed = {
-            type    = "boolean",
+            type = "literal",
+            value = "boolean",
             default = false
          },
       }
@@ -140,28 +149,16 @@ local syntax = {
       kind = "CallExpression",
       base = "Expression",
       properties = {
-         callee = {
-            type = "node",
-            kind = "Expression"
-         },
-         arguments = {
-            type = "list",
-            kind = "Expression"
-         }
+         callee = "Expression",
+         arguments = { type = "list", kind = "Expression" },
       }
    },
    SendExpression = {
       kind = "SendExpression",
       base = "Expression",
       properties = {
-         receiver = {
-            type = "node",
-            kind = "Expression"
-         },
-         method = {
-            type = "node",
-            kind = "Identifier",
-         },
+         receiver = "Expression",
+         method = "Identifier",
          arguments = {
             type = "list",
             kind = "Expression"
@@ -173,8 +170,15 @@ local syntax = {
       base = "Expression",
       properties = {
          value = {
-            type = { "string", "number", "nil", "boolean", "cdata" }
-         }
+            type = "choice",
+            values = {
+               { type = "literal", value = "string" },
+               { type = "literal", value = "number" },
+               { type = "literal", value = "nil" },
+               { type = "literal", value = "boolean" },
+               { type = "literal", value = "cdata" },
+            }
+         },
       }
    },
    Table = {
@@ -200,8 +204,8 @@ local syntax = {
       base = "Statement",
       properties = {
          expression = {
-            type = "node",
-            kind = {"Statement", "Expression" }
+            type = "choice",
+            values = { "Statement", "Expression" },
          }
       }
    },
@@ -210,23 +214,13 @@ local syntax = {
       base = "Statement",
       properties = { },
    },
-   BlockStatement = {
-      kind = "BlockStatement",
-      base = "Statement",
-      properties = {
-         body = {
-            type = "list",
-            kind = "Statement"
-         }
-      }
-   },
    DoStatement = {
       kind = "DoStatement",
       base = "Statement",
       properties = {
          body = {
-            type = "node",
-            kind = "BlockStatement",
+            type = "list",
+            kind = "Statement",
          }
       }
    },
@@ -240,11 +234,11 @@ local syntax = {
          },
          cons = {
             type = "list",
-            kind = "BlockStatement",
+            kind = { type = "list", kind = "Statement" },
          },
          alternate = {
-            type = "node",
-            kind = "BlockStatement",
+            type = "list",
+            kind = "Statement",
             optional = true,
          }
       }
@@ -253,18 +247,14 @@ local syntax = {
       kind = "LabelStatement",
       base = "Statement",
       properties = {
-         label = {
-            type = "string",
-         }
+         label = { type = "literal", value = "string" },
       }
    },
    GotoStatement = {
       kind = "GotoStatement",
       base = "Statement",
       properties = {
-         label = {
-            type = "string",
-         }
+         label = { type = "literal", value = "string" }
       }
    },
    BreakStatement = {
@@ -286,12 +276,9 @@ local syntax = {
       kind = "WhileStatement",
       base = "Statement",
       properties = {
-         test = {
-            type = "node",
-            kind = "Expression"
-         },
+         test = "Expression",
          body = {
-            type = "node",
+            type = "list",
             kind = "Statement"
          }
       }
@@ -300,51 +287,36 @@ local syntax = {
       kind = "RepeatStatement",
       base = "Statement",
       properties = {
-         test = {
-            type = "node",
-            kind = "Expression",
-         },
+         test = "Expression",
          body = {
-            type = "node",
-            kind = "BlockStatement"
-         }
+            type = "list",
+            kind = "Statement",
+         },
       }
    },
    ForInit = {
       kind = "ForInit",
       base = "Expression",
       properties = {
-         id = {
-            type = "node",
-            kind = "Identifier",
-         },
-         value = {
-            type = "node",
-            kind = "Expression"
-         }
+         id = "Identifier",
+         value = "Expression",
       }
    },
    ForStatement = {
       kind = "ForStatement",
       base = "Statement",
       properties = {
-         init = {
-            type = "node",
-            kind = "ForInit"
-         },
-         last = {
-            type = "node",
-            kind = "Expression"
-         },
+         init = "ForInit",
+         last = "Expression",
          step = {
             type = "node",
             kind = "Expression",
             optional = true,
          },
          body = {
-            type = "node",
-            kind = "BlockStatement"
-         }
+            type = "list",
+            kind = "Statement",
+         },
       }
    },
    ForNames = {
@@ -361,18 +333,15 @@ local syntax = {
       kind = "ForInStatement",
       base = "Statement",
       properties = {
-         namelist = {
-            type = "node",
-            kind = "ForNames"
-         },
+         namelist = "ForNames",
          explist = {
             type = "list",
             kind = "Expression"
          },
          body = {
-            type = "node",
-            kind = "BlockStatement"
-         }
+            type = "list",
+            kind = "Statement",
+         },
       }
    },
    LocalDeclaration = {
@@ -394,23 +363,25 @@ local syntax = {
       base = "Statement",
       properties = {
          id = {
-            type = "node",
-            kind = { "MemberExpression", "Identifier" },
+            type = "choice",
+            values = { "MemberExpression", "Identifier"},
          },
          body = {
-            type = "node",
-            kind = "BlockStatement",
+            type = "list",
+            kind = "Statement",
          },
          params = {
             type = "list",
             kind = "Identifier",
          },
          vararg = {
-            type = "boolean",
+            type = "literal",
+            value = "boolean",
             default = false
          },
          locald = {
-            type = "boolean",
+            type = "literal",
+            value = "boolean",
             default = false
          }
       }
@@ -420,121 +391,126 @@ local syntax = {
       base = "Expression",
       properties = {
          body = {
-            type = "node",
-            kind = "BlockStatement",
+            type = "list",
+            kind = "Statement",
          },
          params = {
             type = "list",
             kind = "Identifier",
          },
          vararg = {
-            type = "boolean",
+            type = "literal",
+            value = "boolean",
             default = false
          }
       }
    }
 }
 
-local function iskind(prop, kind)
+local check
+
+local function iskind(prop, tag)
    if type(prop) ~= "table" then
       return false
    end
    local meta = syntax[prop.kind]
    while meta do
-      if meta.kind == kind then
+      if meta.kind == tag then
          return true
       end
       meta = syntax[meta.base]
    end
    return false
 end
+
 local function isnode(prop)
    return iskind(prop, "Node")
 end
 
-local function kind2str(kind)
-   if type(kind) == "table" then
-      return table.concat(kind, "|")
+local function kind2str(spec)
+   if type(spec) == "string" then
+      return spec
+   elseif spec.type == "node" then
+      return spec.kind
+   elseif spec.type == "list" then
+      local etype = kind2str(spec.kind)
+      return "list of " .. etype
+   elseif spec.type == "enum" then
+      local ls = {}
+      for i = 1, spec.values do ls[i] = spec.values[i] end
+      return table.concat(ls, ", ")
+   elseif spec.type == "literal" then
+      return "literal " .. spec.value
+   elseif spec.type == "choice" then
+      local ls = {}
+      for i = 1, spec.values do ls[i] = kind2str(spec.values[i]) end
+      return table.concat(ls, "|")
+   else
+      error("internal error: invalid spec type")
    end
-   return tostring(kind)
 end
 
-local function validate_node(spec, prop)
-   if type(spec.kind) ~= "table" then
-      spec.kind = { spec.kind }
-   end
+local function check_node(tag, prop)
    if not isnode(prop) then
-      return nil, "expected Node"
+      return false, "expected Node"
    end
-   for i=1, #spec.kind do
-      if iskind(prop, spec.kind[i]) then
-         return true, prop
-      end
+   if not iskind(prop, tag) then
+      return false, "expected " .. tag
    end
-   return nil, "expected "..kind2str(spec.kind)
+   return true
 end
 
-local function validate_list(spec, prop)
-   if type(spec.kind) ~= "table" then
-      spec.kind = { spec.kind }
-   end
+local function check_list(spec, prop)
    if type(prop) ~= "table" then
-      return nil, "expected list of "..kind2str(spec.kind).." (got "..type(prop)..")"
+      return false, "expected list of "..kind2str(spec.kind).." (got "..type(prop)..")"
    end
    if isnode(prop) then
-      return nil, "expected list of "..kind2str(spec.kind).." (got node)"
+      return false, "expected list of "..kind2str(spec.kind).." (got node)"
    end
    for i=1, #prop do
-      local seen = false
-      for j=1, #spec.kind do
-         if iskind(prop[i], spec.kind[j]) then
-            seen = true
-            break
-         end
-      end
-      if not seen then
-         return nil, "expected list of "..kind2str(spec.kind)
-      end
+      check(spec.kind, prop[i])
    end
-   return true, prop
+   return true
 end
 
-local function validate_enum(spec, prop)
+local function check_enum(spec, prop)
    for i=1, #spec.values do
-      if prop == spec.values[i] then
-         return true, prop
-      end
+      if prop == spec.values[i] then return true end
    end
-   return nil, "expected one of "..kind2str(spec.values).." (got '"..tostring(prop).."')"
+   return false, "expected one of "..kind2str(spec).." (got '"..tostring(prop).."')"
 end
 
-local function validate_type(spec, prop)
-   if type(spec.type) == "table" then
-      local seen = false
-      for i=1, #spec.type do
-         if type(prop) == spec.type[i] then
-            return true, prop
-         end
+local function check_literal(spec, prop)
+   assert(type(spec.value) == "string")
+   if type(prop) ~= spec.value then
+      return false, "expected "..spec.value.." (got "..type(prop)..")"
+   end
+   return true
+end
+
+local function check_choice(spec, prop)
+   for i = 1, #spec.values do
+      if check(spec.values[i], prop) then
+         return true
       end
-      return nil, "expected any of type "..kind2str(spec.kind)
-   else
-      assert(type(spec.type) == "string")
-      if type(prop) == spec.type then
-         return true, prop
-      end
-      return nil, "expected "..spec.type.." (got "..type(prop)..")"
    end
 end
 
-local function validate_any(spec, prop)
-   if spec.type == "node" then
-      return validate_node(spec, prop)
+function check(spec, prop)
+   if type(spec) == "string" then
+      return check_node(spec, prop)
+   elseif spec.type == "node" then
+      return check_node(spec.kind, prop)
    elseif spec.type == "list" then
-      return validate_list(spec, prop)
+      return check_list(spec, prop)
    elseif spec.type == "enum" then
-      return validate_enum(spec, prop)
+      return check_enum(spec, prop)
+   elseif spec.type == "literal" then
+      return check_literal(spec, prop)
+   elseif spec.type == "choice" then
+      return check_choice(spec, prop)
    else
-      return validate_type(spec, prop)
+      error("internal error: invalid spec type")
    end
 end
 
@@ -544,9 +520,8 @@ local function validate(meta, node)
          node[name] = spec.default
       end
       local prop = node[name]
-      if prop == nil and spec.optional then
-      else
-         local ok, er = validate_any(spec, prop)
+      if prop ~= nil or not spec.optional then
+         local ok, er = check(spec, prop)
          if not ok then
             error(er.." for "..(node.kind or "?").."."..name)
          end
