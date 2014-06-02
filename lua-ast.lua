@@ -39,10 +39,6 @@ function AST.chunk(ast, body, chunkname, firstline, lastline)
     return build("Chunk", { body = body, chunkname = chunkname, firstline = firstline, lastline = lastline })
 end
 
-function AST.block_stmt(ast, stmts, firstline, lastline)
-    return stmts
-end
-
 function AST.local_decl(ast, vlist, exps, line)
     local ids = {}
     for k = 1, #vlist do

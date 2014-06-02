@@ -514,7 +514,7 @@ local function parse_chunk(ast, ls, top_level)
     if top_level then
         return ast:chunk(body, ls.chunkname, 0, lastline)
     else
-        return ast:block_stmt(body, firstline, lastline)
+        return body
     end
 end
 
