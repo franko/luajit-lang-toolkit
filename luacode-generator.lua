@@ -68,11 +68,13 @@ function ExpressionRule:BinaryExpression(node)
     local oper = node.operator
     local lprio = operator.left_priority(oper)
     local rprio = operator.right_priority(oper)
-    local a, a_prio = self:expr_emit(node.left)
-    local b, b_prio = self:expr_emit(node.right)
-    local ap = a_prio <  lprio and format("(%s)", a) or a
-    local bp = b_prio <= lprio and format("(%s)", b) or b
-    return format("%s %s %s", ap, oper, bp), rprio
+    local a, alprio, arprio = self:expr_emit(node.left)
+    local b, blprio, brprio = self:expr_emit(node.right)
+    if not arprio then arprio = alprio end
+    if not brprio then brprio = blprio end
+    local ap = arprio <  lprio and format("(%s)", a) or a
+    local bp = blprio <= rprio and format("(%s)", b) or b
+    return format("%s %s %s", ap, oper, bp), lprio, rprio
 end
 
 function ExpressionRule:UnaryExpression(node)
