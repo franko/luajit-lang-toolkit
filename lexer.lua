@@ -114,8 +114,22 @@ local function resetbuf(ls)
     ls.save_buf = ''
 end
 
+local function resetbuf_tospace(ls)
+    ls.space_buf = ls.space_buf .. ls.save_buf
+    ls.save_buf = ''
+end
+
+local function spaceadd(ls, str)
+    ls.space_buf = ls.space_buf .. str
+end
+
 local function save(ls, c)
     ls.save_buf = ls.save_buf .. c
+end
+
+local function savespace_and_next(ls)
+    ls.space_buf = ls.space_buf .. ls.current
+    nextchar(ls)
 end
 
 local function save_and_next(ls)
@@ -127,11 +141,17 @@ local function get_string(ls, init_skip, end_skip)
     return strsub(ls.save_buf, init_skip + 1, - (end_skip + 1))
 end
 
+local function get_space_string(ls)
+    local s = ls.space_buf
+    ls.space_buf = ''
+    return s
+end
+
 local function inclinenumber(ls)
     local old = ls.current
-    nextchar(ls) -- skip `\n' or `\r'
+    savespace_and_next(ls) -- skip `\n' or `\r'
     if curr_is_newline(ls) and ls.current ~= old then
-        nextchar(ls) -- skip `\n\r' or `\r\n'
+        savespace_and_next(ls) -- skip `\n\r' or `\r\n'
     end
     ls.linenumber = ls.linenumber + 1
 end
@@ -330,22 +350,24 @@ local function llex(ls)
         if current == '\n' or current == '\r' then
             inclinenumber(ls)
         elseif current == ' ' or current == '\t' or current == '\b' or current == '\f' then
-            nextchar(ls)
+            savespace_and_next(ls)
+            -- nextchar(ls)
         elseif current == '-' then
             nextchar(ls)
             if ls.current ~= '-' then return '-' end
             -- else is a comment
             nextchar(ls)
+            spaceadd(ls, '--')
             if ls.current == '[' then
                 local sep = skip_sep(ls)
-                resetbuf(ls) -- `skip_sep' may dirty the buffer
+                resetbuf_tospace(ls) -- `skip_sep' may dirty the buffer
                 if sep >= 0 then
                     read_long_string(ls, sep, false) -- long comment
-                    resetbuf(ls)
+                    resetbuf_tospace(ls)
                 end
             end
             while not curr_is_newline(ls) and ls.current ~= END_OF_STREAM do
-                nextchar(ls)
+                savespace_and_next(ls)
             end
         elseif current == '[' then
             local sep = skip_sep(ls)
@@ -407,8 +429,10 @@ function Lexer.next(ls)
     ls.lastline = ls.linenumber
     if ls.tklookahead == 'TK_eof' then -- No lookahead token?
         ls.token, ls.tokenval = llex(ls) -- Get nextchar token.
+        ls.space = get_space_string(ls)
     else
         ls.token, ls.tokenval = ls.tklookahead, ls.tklookaheadval
+        ls.space = ls.spaceahead
         ls.tklookahead = 'TK_eof'
     end
 end
@@ -416,6 +440,7 @@ end
 function Lexer.lookahead(ls)
     assert(ls.tklookahead == 'TK_eof')
     ls.tklookahead, ls.tklookaheadval = llex(ls)
+    ls.spaceahead = get_space_string(ls)
     return ls.tklookahead
 end
 
@@ -430,6 +455,7 @@ local function lex_setup(read_func, chunkname)
         lastline = 1,
         read_func = read_func,
         chunkname = chunkname,
+        space_buf = ''
     }
     nextchar(ls)
     if ls.current == '\xef' and ls.n >= 2 and
