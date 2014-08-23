@@ -13,6 +13,7 @@ local bc   = require('bytecode')
 local util = require('util')
 
 local const_eval = require("ast-const-eval")
+local boolean_const_eval = require("ast-boolean-const-eval")
 
 local BC = bc.BC
 
@@ -503,7 +504,19 @@ function TestRule:UnaryExpression(node, jmp, negate, store, dest)
    if node.operator == 'not' and store == 0 then
       self:test_emit(node.argument, jmp, not negate)
    else
-      self:expr_test(node, jmp, negate, store, dest or self.ctx.freereg)
+      local const_arg = boolean_const_eval(node.argument)
+      if const_arg ~= nil then
+         local value = not const_arg
+         local vbit = value == true and EXPR_RESULT_TRUE or EXPR_RESULT_FALSE
+         if bit.band(store, vbit) ~= 0 then
+            self.ctx:op_load(dest, value)
+         end
+         if (not negate and not value) or (negate and value) then
+            self.ctx:jump(jmp, dest + 1)
+         end
+      else
+         self:expr_test(node, jmp, negate, store, dest or self.ctx.freereg)
+      end
    end
 end
 
