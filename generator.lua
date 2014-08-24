@@ -58,6 +58,15 @@ local EXPR_EMIT_VSNP = { value = true, string = true, number = true, primitive =
 -- TGETx/TSETx instructions
 local EXPR_EMIT_VSB  = { value = true, string = true, byte = true }
 
+local function store_bit(cond)
+   return cond and EXPR_RESULT_TRUE or EXPR_RESULT_FALSE
+end
+
+-- Logical XOR (exclusive OR)
+local function xor(a, b)
+   return (a and not b) or (not a and b)
+end
+
 local StatementRule = { }
 local ExpressionRule = { }
 local MultiExprRule = { }
@@ -289,7 +298,7 @@ end
 
 function ExpressionRule:LogicalExpression(node, dest)
    local negate = (node.operator == 'or')
-   local lstore = (node.operator == 'or' and EXPR_RESULT_TRUE or EXPR_RESULT_FALSE)
+   local lstore = store_bit(negate)
    local l = util.genid()
    self:test_emit(node.left, l, negate, lstore, dest)
    self:expr_toreg(node.right, dest)
@@ -435,7 +444,7 @@ end
 function TestRule:Literal(node, jmp, negate, store, dest)
    local free = self.ctx.freereg
    local value = node.value
-   if bit.band(store, value and EXPR_RESULT_TRUE or EXPR_RESULT_FALSE) ~= 0 then
+   if bit.band(store, store_bit(value)) ~= 0 then
       self:expr_toreg(node, dest)
       self.ctx:nextreg()
    end
@@ -454,7 +463,7 @@ end
 -- Return true IFF the variable "store" has the EXPR_RESULT_FALSE bit
 -- set. If "negate" is true check the EXPR_RESULT_TRUE bit instead.
 local function has_branch(store, negate)
-   return bit.band(store, negate and EXPR_RESULT_TRUE or EXPR_RESULT_FALSE) ~= 0
+   return bit.band(store, store_bit(negate)) ~= 0
 end
 
 function TestRule:BinaryExpression(node, jmp, negate, store, dest)
@@ -509,10 +518,9 @@ function TestRule:UnaryExpression(node, jmp, negate, store, dest)
 end
 
 function TestRule:LogicalExpression(node, jmp, negate, store, dest)
-   local o = node.operator
-   local lbit = o == 'and' and EXPR_RESULT_FALSE or EXPR_RESULT_TRUE
-   local lstore = bit.band(store, lbit)
-   local imbranch = (o == 'and' and negate) or (o == 'or' and not negate)
+   local or_operator = (node.operator == "or")
+   local lstore = bit.band(store, store_bit(or_operator))
+   local imbranch = xor(negate, or_operator)
    if imbranch then
       local templ = util.genid()
       self:test_emit(node.left, templ, not negate, lstore, dest)
@@ -887,10 +895,10 @@ local function generate(tree, name)
       local jreg = (store ~= 0 and dest + 1 or free)
       local const_val = boolean_const_eval(node)
       if const_val ~= nil then
-         if bit.band(store, const_val and EXPR_RESULT_TRUE or EXPR_RESULT_FALSE) ~= 0 then
+         if bit.band(store, store_bit(const_val)) ~= 0 then
             self.ctx:op_load(dest, const_val)
          end
-         if (negate and const_val) or (not negate and not const_val) then
+         if xor(negate, not const_val) then
             self.ctx:jump(jmp, jreg)
          end
       else
