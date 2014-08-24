@@ -504,19 +504,7 @@ function TestRule:UnaryExpression(node, jmp, negate, store, dest)
    if node.operator == 'not' and store == 0 then
       self:test_emit(node.argument, jmp, not negate)
    else
-      local const_arg = boolean_const_eval(node.argument)
-      if const_arg ~= nil then
-         local value = not const_arg
-         local vbit = value == true and EXPR_RESULT_TRUE or EXPR_RESULT_FALSE
-         if bit.band(store, vbit) ~= 0 then
-            self.ctx:op_load(dest, value)
-         end
-         if (not negate and not value) or (negate and value) then
-            self.ctx:jump(jmp, dest + 1)
-         end
-      else
-         self:expr_test(node, jmp, negate, store, dest or self.ctx.freereg)
-      end
+      self:expr_test(node, jmp, negate, store, dest or self.ctx.freereg)
    end
 end
 
@@ -896,13 +884,23 @@ local function generate(tree, name)
    -- Emit code to test an expression as a boolean value
    function self:expr_test(node, jmp, negate, store, dest)
       local free = self.ctx.freereg
-      if dest then
-         self:expr_toreg(node, dest)
-      else
-         dest = self:expr_toanyreg(node)
-      end
       local jreg = (store ~= 0 and dest + 1 or free)
-      self.ctx:op_test(negate, dest, jmp, jreg)
+      local const_val = boolean_const_eval(node)
+      if const_val ~= nil then
+         if bit.band(store, const_val and EXPR_RESULT_TRUE or EXPR_RESULT_FALSE) ~= 0 then
+            self.ctx:op_load(dest, const_val)
+         end
+         if (negate and const_val) or (not negate and not const_val) then
+            self.ctx:jump(jmp, jreg)
+         end
+      else
+         if dest then
+            self:expr_toreg(node, dest)
+         else
+            dest = self:expr_toanyreg(node)
+         end
+         self.ctx:op_test(negate, dest, jmp, jreg)
+      end
       self.ctx.freereg = free
    end
 
