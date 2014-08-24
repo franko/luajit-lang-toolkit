@@ -1,0 +1,37 @@
+-- BYTECODE -- "not-operator-3.lua":0-5
+0001    KSHORT   0   1
+0002    ISEQN    0   0      ; 1
+0003    JMP      0 => 0006
+0004    KPRI     0   1
+0005    JMP      1 => 0007
+0006 => KPRI     0   2
+0007 => KSHORT   1   1
+0008    ISEQN    1   1      ; 0
+0009    JMP      1 => 0012
+0010    KPRI     1   1
+0011    JMP      2 => 0013
+0012 => KPRI     1   2
+0013 => GGET     2   0      ; "print"
+0014    NOT      3   0
+0015    NOT      4   0
+0016    ISF          4
+0017    JMP      5 => 0019
+0018    KSHORT   4  10
+0019 => NOT      5   0
+0020    IST          5
+0021    JMP      6 => 0023
+0022    KSHORT   5  10
+0023 => CALL     2   1   4
+0024    GGET     2   0      ; "print"
+0025    NOT      3   1
+0026    NOT      4   1
+0027    ISF          4
+0028    JMP      5 => 0030
+0029    KSHORT   4  10
+0030 => NOT      5   1
+0031    IST          5
+0032    JMP      6 => 0034
+0033    KSHORT   5  10
+0034 => CALL     2   1   4
+0035    RET0     0   1
+
