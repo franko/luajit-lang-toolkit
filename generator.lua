@@ -351,8 +351,8 @@ local function emit_call_expression(self, node, want, use_tail, use_self)
       local obj = self:expr_toanyreg(node.receiver)
       self.ctx:setreg(base + 1)
       self.ctx:op_move(base + 1, obj)
-      local method = self.ctx:const(node.method.name)
-      self.ctx:op_tget(base, obj, 'S', method)
+      local method_type, method = self:property_tagged(node.method.name)
+      self.ctx:op_tget(base, obj, method_type, method)
       self.ctx:nextreg()
    else
       self:expr_toreg(node.callee, base)
@@ -422,7 +422,7 @@ function LHSExpressionRule:MemberExpression(node)
    if node.computed then
       key_type, key = self:expr_toanyreg_tagged(node.property, EXPR_EMIT_VSB)
    else
-      key_type, key = 'S', self.ctx:const(node.property.name)
+      key_type, key = self:property_tagged(node.property.name)
    end
    return { tag = 'member', target = target, key = key, key_type = key_type }
 end
@@ -990,11 +990,23 @@ local function generate(tree, name)
          if emit.primitive and (tv == 'nil' or tv == 'boolean') then
             return 'P', self.ctx:kpri(value)
          elseif emit.string and tv == 'string' then
-            return 'S', self.ctx:const(value)
+            return self:property_tagged(value)
          end
          -- fall through
       end
       return 'V', self:expr_toanyreg(node)
+   end
+
+
+   function self:property_tagged(property_name)
+      local kprop = self.ctx:const(property_name)
+      if kprop < 255 then
+         return 'S', kprop
+      else
+         local prop = self.ctx:nextreg()
+         self.ctx:op_load(prop, property_name)
+         return 'V', prop
+      end
    end
 
    -- Emit code to store an expression in the given LHS.
