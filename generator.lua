@@ -96,6 +96,16 @@ local function mov_toreg(ctx, dest, src)
    end
 end
 
+-- Conditionally move "src" to "dest" and jump to given target
+-- if "src" evaluate to true/false according to "cond".
+local function cond_mov_toreg(ctx, cond, dest, src, jump_label, freereg)
+   if dest ~= src then
+      ctx:op_testmov(cond, dest, src, jump_label, freereg)
+   else
+      ctx:op_test(cond, src, jump_label, freereg)
+   end
+end
+
 local function is_byte_number(v)
    return type(v) == 'number' and v % 1 == 0 and v >= 0 and v < 256
 end
@@ -427,20 +437,6 @@ function LHSExpressionRule:MemberExpression(node)
    return { tag = 'member', target = target, key = key, key_type = key_type }
 end
 
-function TestRule:Identifier(node, jmp, negate, store, dest)
-   local var = is_local_var(self.ctx, node)
-   if var then
-      local jreg = store ~= 0 and dest + 1 or self.ctx.freereg
-      if store ~= 0 and dest ~= var then
-         self.ctx:op_testmov(negate, dest, var, jmp, jreg)
-      else
-         self.ctx:op_test(negate, var, jmp, jreg)
-      end
-   else
-      self:expr_test(node, jmp, negate, store, dest)
-   end
-end
-
 function TestRule:Literal(node, jmp, negate, store, dest)
    local free = self.ctx.freereg
    local value = node.value
@@ -502,9 +498,6 @@ function TestRule:BinaryExpression(node, jmp, negate, store, dest)
          self.ctx:op_load(dest, not negate)
       end
    else
-      -- LuaJIT compatibility rule: set store to a non zero
-      -- value so that the register is counted on test jump
-      store, dest = EXPR_RESULT_BOTH, dest or self.ctx.freereg
       self:expr_test(node, jmp, negate, store, dest)
    end
 end
@@ -882,9 +875,6 @@ local function generate(tree, name)
       if rule then
          rule(self, node, jmp, negate, store, dest)
       else
-         -- LuaJIT compatibility rule: set store to a non zero
-         -- value so that the register is counted on test jump
-         store, dest = EXPR_RESULT_BOTH, dest or self.ctx.freereg
          self:expr_test(node, jmp, negate, store, dest)
       end
    end
@@ -902,12 +892,12 @@ local function generate(tree, name)
             self.ctx:jump(jmp, jreg)
          end
       else
-         if dest then
-            self:expr_toreg(node, dest)
+         local expr = self:expr_toanyreg(node)
+         if store ~= 0 then
+            cond_mov_toreg(self.ctx, negate, dest, expr, jmp, jreg)
          else
-            dest = self:expr_toanyreg(node)
+            self.ctx:op_test(negate, expr, jmp, jreg)
          end
-         self.ctx:op_test(negate, dest, jmp, jreg)
       end
       self.ctx.freereg = free
    end
