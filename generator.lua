@@ -710,12 +710,12 @@ function StatementRule:ForStatement(node)
    local init = node.init
    local name = init.id.name
 
-   self:expr_toreg(init.value, base, 1)
+   self:expr_toreg(init.value, base)
    self.ctx:setreg(base + 1)
-   self:expr_toreg(node.last, base + 1, 1)
+   self:expr_toreg(node.last, base + 1)
    self.ctx:setreg(base + 2)
    if node.step then
-      self:expr_toreg(node.step, base + 2, 1)
+      self:expr_toreg(node.step, base + 2)
    else
       self.ctx:op_load(base + 2, 1)
    end
