@@ -137,6 +137,10 @@ function expr_list(ast, ls)
     while lex_opt(ls, ',') do
         exps[#exps + 1] = expr(ast, ls)
     end
+    local n = #exps
+    if n > 0 then
+        exps[n] = ast:set_expr_last(exps[n])
+    end
     return exps
 end
 
@@ -175,7 +179,7 @@ function expr_primary(ast, ls)
     if ls.token == '(' then
         local line = ls.linenumber
         ls:next()
-        vk, v = 'expr', expr(ast, ls)
+        vk, v = 'expr', ast:expr_brackets(expr(ast, ls))
         lex_match(ls, ')', '(', line)
     elseif ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto') then
         vk, v = 'var', var_lookup(ast, ls)

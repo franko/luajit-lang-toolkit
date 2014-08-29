@@ -290,6 +290,10 @@ function ExpressionRule:BinaryExpression(node, dest)
    end
 end
 
+function ExpressionRule:ExpressionValue(node, dest)
+   self:expr_toreg(node.value, dest)
+end
+
 function ExpressionRule:UnaryExpression(node, dest)
    local free = self.ctx.freereg
    local a = self:expr_toanyreg(node.argument)

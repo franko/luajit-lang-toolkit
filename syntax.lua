@@ -106,6 +106,13 @@ local syntax = {
          argument = "Expression",
       }
    },
+   ExpressionValue = {
+      kind = "ExpressionValue",
+      base = "Expression",
+      properties = {
+         value = "Expression",
+      }
+   },
    AssignmentExpression = {
       kind = "AssignmentExpression",
       base = "Statement",
