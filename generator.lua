@@ -769,16 +769,13 @@ end
 
 function StatementRule:ReturnStatement(node)
    local narg = #node.arguments
+   local local_var = narg == 1 and is_local_var(self.ctx, node.arguments[1])
    if narg == 0 then
       self.ctx:close_uvals()
       self.ctx:op_ret0()
-   elseif narg == 1 then
-      local base = self.ctx.freereg
-      local dest, tail = self:expr_toanyreg(node.arguments[1], true)
-      if not tail then
-         self.ctx:close_uvals()
-         self.ctx:op_ret1(dest)
-      end
+   elseif local_var then
+      self.ctx:close_uvals()
+      self.ctx:op_ret1(local_var)
    else
       local base = self.ctx.freereg
       for i=1, narg - 1 do
@@ -786,12 +783,15 @@ function StatementRule:ReturnStatement(node)
          self.ctx:nextreg()
       end
       local lastarg = node.arguments[narg]
-      local mret, tail = self:expr_tomultireg(lastarg, MULTIRES, false)
+      local request_tcall = (narg == 1)
+      local mret, tail = self:expr_tomultireg(lastarg, MULTIRES, request_tcall)
       self.ctx.freereg = base
       if not tail then
          self.ctx:close_uvals()
          if mret then
             self.ctx:op_retm(base, narg - 1)
+         elseif narg == 1 then
+            self.ctx:op_ret1(base)
          else
             self.ctx:op_ret(base, narg)
          end
