@@ -455,9 +455,10 @@ function TestRule:Literal(node, jmp, negate, store, dest)
    self.ctx.freereg = free
 end
 
-local function lookup_test(negate, op)
-   local lookup = negate and cmpop or cmpopinv
-   return unpack(lookup[op])
+local function compare_op(negate, op)
+   local oper_table = negate and cmpop or cmpopinv
+   local e = oper_table[op]
+   return e[1], e[2]
 end
 
 -- Return true IFF the variable "store" has the EXPR_RESULT_FALSE bit
@@ -487,7 +488,7 @@ function TestRule:BinaryExpression(node, jmp, negate, store, dest)
       local use_imbranch = (dest and has_branch(store, negate))
       if use_imbranch then
          local jreg = store ~= 0 and dest + 1 or free
-         local test, swap = lookup_test(not negate, o)
+         local test, swap = compare_op(not negate, o)
          local altlabel = util.genid()
          self.ctx:op_comp(test, a, btag, b, altlabel, free, swap)
          self.ctx:op_load(dest, negate)
@@ -495,7 +496,7 @@ function TestRule:BinaryExpression(node, jmp, negate, store, dest)
          self.ctx:here(altlabel)
          self.ctx.freereg = free
       else
-         local test, swap = lookup_test(negate, o)
+         local test, swap = compare_op(negate, o)
          self.ctx:op_comp(test, a, btag, b, jmp, free, swap)
       end
       if has_branch(store, not negate) then
