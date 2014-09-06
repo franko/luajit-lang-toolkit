@@ -361,19 +361,17 @@ end
 ExpressionRule.FunctionDeclaration = ExpressionRule.FunctionExpression
 
 local function emit_call_expression(self, node, want, use_tail, use_self)
-   local base = self.ctx.freereg
-   local free = base
+   local free = self.ctx.freereg
 
    if use_self then
       local obj = self:expr_toanyreg(node.receiver)
-      self.ctx:setreg(base + 1)
-      self.ctx:op_move(base + 1, obj)
+      self.ctx:op_move(free + 1, obj)
+      self.ctx:setreg(free + 1)
       local method_type, method = self:property_tagged(node.method.name)
-      self.ctx:op_tget(base, obj, method_type, method)
+      self.ctx:op_tget(free, obj, method_type, method)
       self.ctx:nextreg()
    else
-      self:expr_toreg(node.callee, base)
-      self.ctx:nextreg()
+      self:expr_tonextreg(node.callee)
    end
 
    local narg = #node.arguments
@@ -392,16 +390,16 @@ local function emit_call_expression(self, node, want, use_tail, use_self)
    if mres then
       if use_tail then
          self.ctx:close_uvals()
-         self.ctx:op_callmt(base, narg - 1)
+         self.ctx:op_callmt(free, narg - 1)
       else
-         self.ctx:op_callm(base, want, narg - 1)
+         self.ctx:op_callm(free, want, narg - 1)
       end
    else
       if use_tail then
          self.ctx:close_uvals()
-         self.ctx:op_callt(base, narg)
+         self.ctx:op_callt(free, narg)
       else
-         self.ctx:op_call(base, want, narg)
+         self.ctx:op_call(free, want, narg)
       end
    end
 
