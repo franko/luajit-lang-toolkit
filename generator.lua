@@ -179,6 +179,11 @@ local function is_kint(x)
 end
 
 function ExpressionRule:Table(node, dest)
+   if #node.array_entries == 0 and #node.hash_keys == 0 then
+      self.ctx:op_tnew(dest, 0)
+      return
+   end
+
    local free = self.ctx.freereg
    local ins = self.ctx:op_tnew(free, 0)
    self.ctx:nextreg()
