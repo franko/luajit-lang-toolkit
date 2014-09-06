@@ -98,11 +98,11 @@ end
 
 -- Conditionally move "src" to "dest" and jump to given target
 -- if "src" evaluate to true/false according to "cond".
-local function cond_mov_toreg(ctx, cond, dest, src, jump_label, freereg)
+local function cond_mov_toreg(ctx, cond, dest, src, jump_label, jreg)
    if dest ~= src then
-      ctx:op_testmov(cond, dest, src, jump_label, freereg)
+      ctx:op_testmov(cond, dest, src, jump_label, jreg)
    else
-      ctx:op_test(cond, src, jump_label, freereg)
+      ctx:op_test(cond, src, jump_label, jreg)
    end
 end
 
@@ -261,29 +261,27 @@ local dirop = {
 
 function ExpressionRule:ConcatenateExpression(node, dest)
    local free = self.ctx.freereg
-   for i = 0, #node.terms - 1 do
-      self:expr_toreg(node.terms[i + 1], free + i)
-      self.ctx:setreg(free + i + 1)
+   for i = 1, #node.terms do
+      self:expr_tonextreg(node.terms[i])
    end
    self.ctx.freereg = free
    self.ctx:op_cat(dest, free, free + #node.terms - 1)
 end
 
-function ExpressionRule:BinaryExpression(node, dest)
+function ExpressionRule:BinaryExpression(node, dest, jreg)
+   local free = self.ctx.freereg
    local o = node.operator
    if cmpop[o] then
       local l = util.genid()
-      self:test_emit(node, l, false, EXPR_RESULT_BOTH, dest)
+      self:test_emit(node, l, jreg, false, EXPR_RESULT_BOTH, dest)
       self.ctx:here(l)
    elseif dirop[o] then
-      local free = self.ctx.freereg
       local atag, a = self:expr_toanyreg_tagged(node.left, EXPR_EMIT_VN)
       local btag, b = self:expr_toanyreg_tagged(node.right, EXPR_EMIT_VN)
       self.ctx.freereg = free
       assert(not (atag == 'N' and btag == 'N'), "operands are both constants")
       self.ctx:op_infix(dirop[o], dest, atag, a, btag, b)
    else
-      local free = self.ctx.freereg
       local a = self:expr_toanyreg(node.left)
       local b = self:expr_toanyreg(node.right)
       self.ctx.freereg = free
@@ -295,8 +293,8 @@ function ExpressionRule:BinaryExpression(node, dest)
    end
 end
 
-function ExpressionRule:ExpressionValue(node, dest)
-   self:expr_toreg(node.value, dest)
+function ExpressionRule:ExpressionValue(node, dest, jreg)
+   self:expr_toreg(node.value, dest, jreg)
 end
 
 function ExpressionRule:UnaryExpression(node, dest)
@@ -315,12 +313,12 @@ function ExpressionRule:UnaryExpression(node, dest)
    end
 end
 
-function ExpressionRule:LogicalExpression(node, dest)
+function ExpressionRule:LogicalExpression(node, dest, jreg)
    local negate = (node.operator == 'or')
    local lstore = store_bit(negate)
    local l = util.genid()
-   self:test_emit(node.left, l, negate, lstore, dest)
-   self:expr_toreg(node.right, dest)
+   self:test_emit(node.left, l, jreg, negate, lstore, dest)
+   self:expr_toreg(node.right, dest, jreg)
    self.ctx:here(l)
 end
 
@@ -380,8 +378,7 @@ local function emit_call_expression(self, node, want, use_tail, use_self)
 
    local narg = #node.arguments
    for i=1, narg - 1 do
-      self:expr_toreg(node.arguments[i], self.ctx.freereg)
-      self.ctx:nextreg()
+      self:expr_tonextreg(node.arguments[i])
    end
    local mres = false
    if narg > 0 then
@@ -446,18 +443,16 @@ function LHSExpressionRule:MemberExpression(node)
    return { tag = 'member', target = target, key = key, key_type = key_type }
 end
 
-function TestRule:Literal(node, jmp, negate, store, dest)
-   local free = self.ctx.freereg
+function TestRule:Literal(node, jmp, jreg, negate, store, dest)
    local value = node.value
    if bit.band(store, store_bit(value)) ~= 0 then
       self:expr_toreg(node, dest)
-      self.ctx:nextreg()
+   else
+      jreg = self.ctx.freereg
    end
    if (negate and value) or (not negate and not value) then
-      local jreg = store ~= 0 and dest + 1 or free
       self.ctx:jump(jmp, jreg)
    end
-   self.ctx.freereg = free
 end
 
 local function compare_op(negate, op)
@@ -472,7 +467,7 @@ local function has_branch(store, negate)
    return bit.band(store, store_bit(negate)) ~= 0
 end
 
-function TestRule:BinaryExpression(node, jmp, negate, store, dest)
+function TestRule:BinaryExpression(node, jmp, jreg, negate, store, dest)
    local o = node.operator
    if cmpop[o] then
       local free = self.ctx.freereg
@@ -490,9 +485,8 @@ function TestRule:BinaryExpression(node, jmp, negate, store, dest)
          b = self:expr_toanyreg(node.right)
       end
       self.ctx.freereg = free
-      local use_imbranch = (dest and has_branch(store, negate))
+      local use_imbranch = has_branch(store, negate)
       if use_imbranch then
-         local jreg = store ~= 0 and dest + 1 or free
          local test, swap = compare_op(not negate, o)
          local altlabel = util.genid()
          self.ctx:op_comp(test, a, btag, b, altlabel, free, swap)
@@ -508,30 +502,30 @@ function TestRule:BinaryExpression(node, jmp, negate, store, dest)
          self.ctx:op_load(dest, not negate)
       end
    else
-      self:expr_test(node, jmp, negate, store, dest)
+      self:expr_test(node, jmp, jreg, negate, store, dest)
    end
 end
 
-function TestRule:UnaryExpression(node, jmp, negate, store, dest)
+function TestRule:UnaryExpression(node, jmp, jreg, negate, store, dest)
    if node.operator == 'not' and store == 0 then
-      self:test_emit(node.argument, jmp, not negate)
+      self:test_emit(node.argument, jmp, jreg, not negate)
    else
-      self:expr_test(node, jmp, negate, store, dest or self.ctx.freereg)
+      self:expr_test(node, jmp, jreg, negate, store, dest or self.ctx.freereg)
    end
 end
 
-function TestRule:LogicalExpression(node, jmp, negate, store, dest)
+function TestRule:LogicalExpression(node, jmp, jreg, negate, store, dest)
    local or_operator = (node.operator == "or")
    local lstore = bit.band(store, store_bit(or_operator))
    local imbranch = xor(negate, or_operator)
    if imbranch then
       local templ = util.genid()
-      self:test_emit(node.left, templ, not negate, lstore, dest)
-      self:test_emit(node.right, jmp, negate, store, dest)
+      self:test_emit(node.left, templ, jreg, not negate, lstore, dest)
+      self:test_emit(node.right, jmp, jreg, negate, store, dest)
       self.ctx:here(templ)
    else
-      self:test_emit(node.left, jmp, negate, lstore, dest)
-      self:test_emit(node.right, jmp, negate, store, dest)
+      self:test_emit(node.left, jmp, jreg, negate, lstore, dest)
+      self:test_emit(node.right, jmp, jreg, negate, store, dest)
    end
 end
 
@@ -577,7 +571,7 @@ function StatementRule:IfStatement(node, root_exit)
       -- If this is the last branch (count == 1) set to false.
       local bexit = count > 1 and exit
 
-      self:test_emit(test, next_test)
+      self:test_emit(test, next_test, free)
 
       self:block_enter()
       self:block_emit(block, bexit)
@@ -607,8 +601,7 @@ function StatementRule:LocalDeclaration(node)
    local slots = nvars
    for i = 1, nexps - 1 do
       if slots == 0 then break end
-      self:expr_toreg(node.expressions[i], self.ctx.freereg)
-      self.ctx:nextreg()
+      self:expr_tonextreg(node.expressions[i])
       slots = slots - 1
    end
 
@@ -645,12 +638,12 @@ function StatementRule:AssignmentExpression(node)
       -- Use a temporary register even the LHS is not an immediate local
       -- variable.
       local use_reg = true
-      --[[
-      local use_reg = is_local_var(self.ctx, node.left[i])
-      ]]
-      exprs[i] = use_reg and self.ctx.freereg
-      self:expr_toreg(node.right[i], exprs[i])
-      if use_reg then self.ctx:nextreg() end
+      -- local use_reg = is_local_var(self.ctx, node.left[i])
+      if use_reg then
+         exprs[i] = self:expr_tonextreg(node.right[i])
+      else
+         exprs[i] = self:expr_toanyreg(node.right[i])
+      end
       slots = slots - 1
    end
 
@@ -679,7 +672,7 @@ function StatementRule:WhileStatement(node)
    local loop, exit = util.genid(), util.genid()
    self:loop_enter(exit, free)
    self.ctx:here(loop)
-   self:test_emit(node.test, exit)
+   self:test_emit(node.test, exit, free)
    self.ctx:loop(exit)
    self:block_emit(node.body)
    self.ctx:jump(loop, free)
@@ -694,7 +687,7 @@ function StatementRule:RepeatStatement(node)
    self.ctx:here(loop)
    self.ctx:loop(exit)
    self:block_emit(node.body)
-   self:test_emit(node.test, loop)
+   self:test_emit(node.test, loop, free)
    self.ctx:here(exit)
    self:loop_leave()
    self.ctx.freereg = free
@@ -706,31 +699,26 @@ function StatementRule:BreakStatement()
 end
 function StatementRule:ForStatement(node)
    local free = self.ctx.freereg
-   local base = free
-
    local exit = util.genid()
-
    local init = node.init
    local name = init.id.name
 
-   self:expr_toreg(init.value, base)
-   self.ctx:setreg(base + 1)
-   self:expr_toreg(node.last, base + 1)
-   self.ctx:setreg(base + 2)
+   self:expr_tonextreg(init.value)
+   self:expr_tonextreg(node.last)
    if node.step then
-      self:expr_toreg(node.step, base + 2)
+      self:expr_tonextreg(node.step)
    else
-      self.ctx:op_load(base + 2, 1)
+      self.ctx:op_load(self.ctx.freereg, 1)
+      self.ctx:nextreg()
    end
-   self.ctx:setreg(base + 3)
-   local loop = self.ctx:op_fori(base)
+   local loop = self.ctx:op_fori(free)
    self:loop_enter(exit, free)
    self.ctx:newvar(name)
    self:block_enter()
    self:block_emit(node.body)
    self:block_leave()
    self:loop_leave()
-   self.ctx:op_forl(base, loop)
+   self.ctx:op_forl(free, loop)
    self.ctx:here(exit)
    self.ctx.freereg = free
 end
@@ -745,9 +733,8 @@ function StatementRule:ForInStatement(node)
 
    local iter_count = 0
    for i = 1, #iter_list - 1 do
-      self:expr_toreg(iter_list[i], free + iter_count)
+      self:expr_tonextreg(iter_list[i])
       iter_count = iter_count + 1
-      self.ctx:setreg(free + iter_count)
       if iter_count == 2 then break end
    end
 
@@ -785,8 +772,7 @@ function StatementRule:ReturnStatement(node)
    else
       local base = self.ctx.freereg
       for i=1, narg - 1 do
-         self:expr_toreg(node.arguments[i], self.ctx.freereg)
-         self.ctx:nextreg()
+         self:expr_tonextreg(node.arguments[i])
       end
       local lastarg = node.arguments[narg]
       local request_tcall = (narg == 1)
@@ -872,27 +858,29 @@ local function generate(tree, name)
    end
 
    -- Emit the code to evaluate "node" and perform a conditional
-   -- jump based on its value. The argument "jmp" is the jump location.
+   -- jump based on its value.
+   -- The arguments "jmp" and "jreg" are respectively the jump location
+   -- and the rbase operand for the JMP operation if the store is performed.
+   -- When no store is done JMP will use "freereg" as rbase operand.
    -- If "negate" is false the jump on FALSE and viceversa.
    -- The argument "store" is a bitfield that specifies which
    -- computed epxression should be stored. The bit EXPR_RESULT_TRUE
    -- means that the value should be stored when its value is "true".
    -- If "store" is not ZERO than dest should be the register
    -- destination for the result.
-   function self:test_emit(node, jmp, negate, store, dest)
+   function self:test_emit(node, jmp, jreg, negate, store, dest)
       local rule = TestRule[node.kind]
       store = store or 0
       if rule then
-         rule(self, node, jmp, negate, store, dest)
+         rule(self, node, jmp, jreg, negate, store, dest)
       else
-         self:expr_test(node, jmp, negate, store, dest)
+         self:expr_test(node, jmp, jreg, negate, store, dest)
       end
    end
 
    -- Emit code to test an expression as a boolean value
-   function self:expr_test(node, jmp, negate, store, dest)
+   function self:expr_test(node, jmp, jreg, negate, store, dest)
       local free = self.ctx.freereg
-      local jreg = (store ~= 0 and dest + 1 or free)
       local const_val = boolean_const_eval(node)
       if const_val ~= nil then
          if bit.band(store, store_bit(const_val)) ~= 0 then
@@ -904,9 +892,9 @@ local function generate(tree, name)
       else
          local expr = self:expr_toanyreg(node)
          if store ~= 0 then
-            cond_mov_toreg(self.ctx, negate, dest, expr, jmp, jreg)
+            cond_mov_toreg(self.ctx, negate, dest, expr, jmp, self.ctx.freereg)
          else
-            self.ctx:op_test(negate, expr, jmp, jreg)
+            self.ctx:op_test(negate, expr, jmp, self.ctx.freereg)
          end
       end
       self.ctx.freereg = free
@@ -923,23 +911,25 @@ local function generate(tree, name)
          return localvar, false
       else
          local dest = self.ctx.freereg
-         local tailcall = self:expr_toreg(node, dest, tail)
+         local tailcall = self:expr_toreg(node, dest, dest + 1, tail)
          return self.ctx:nextreg(), tailcall
       end
    end
 
    -- Emit code to compute the "node" expression by storing the result in
-   -- the given register "dest". It does return an optional boolean value
-   -- to indicate if a tail call was used.
+   -- the given register "dest". The argument "jreg" indicate the next free
+   -- register to jump in for "test_emit" call (logical expressions).
+   -- The function does return an optional boolean value to indicate if
+   -- a tail call was actually used.
    -- This function always leave the freereg counter to its initial value.
-   function self:expr_toreg(node, dest, tail)
+   function self:expr_toreg(node, dest, jreg, tail)
       local const_val = const_eval(node)
       if const_val then
          self.ctx:op_load(dest, const_val)
       else
          local rule = ExpressionRule[node.kind]
          if rule then
-            rule(self, node, dest)
+            rule(self, node, dest, jreg or self.ctx.freereg)
          elseif MultiExprRule[node.kind] then
             rule = MultiExprRule[node.kind]
             local base = self.ctx.freereg
@@ -951,6 +941,18 @@ local function generate(tree, name)
          end
       end
       return false -- no tail call
+   end
+
+   -- Emit code to compute the "node" expression in the next available register
+   -- and increment afterward the free register counter.
+   -- It does call "expr_toreg" with (dest + 1) as "jreg" argument to inform
+   -- an eventual "test_emit" call that the next free register after the expression
+   -- store is (dest + 1).
+   function self:expr_tonextreg(node)
+      local dest = self.ctx.freereg
+      self:expr_toreg(node, dest, dest + 1)
+      self.ctx:setreg(dest + 1)
+      return dest
    end
 
    -- Generate the code to store multiple values in consecutive registers
@@ -966,7 +968,7 @@ local function generate(tree, name)
          return rule(self, node, want, tail)
       elseif (want > 0 or want == MULTIRES) then
          local dest = self.ctx.freereg
-         self:expr_toreg(node, dest)
+         self:expr_toreg(node, dest, dest + 1)
          if want > 1 then
             self.ctx:op_nils(dest + 1, want - 1)
          end
