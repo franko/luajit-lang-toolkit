@@ -1,0 +1,13 @@
+-- BYTECODE -- "test-9.lua":0-4
+0001    KSHORT   0   5
+0002    KSHORT   1  10
+0003    ISGE     1   0
+0004    JMP      1 => 0007
+0005    KPRI     0   2
+0006    JMP      1 => 0008
+0007 => ADDVN    0   0   0  ; 1
+0008 => GGET     1   0      ; "print"
+0009    MOV      2   0
+0010    CALL     1   1   2
+0011    RET0     0   1
+
