@@ -27,6 +27,13 @@ local bit  = require 'bit'
 local ffi  = require 'ffi'
 local util = require 'util'
 
+local has_jit, jit = pcall(function() return require 'jit' end)
+if not has_jit then
+   jit = { version_num = 20000 } -- fallback
+end
+
+local jit_v21 = jit.version_num >= 20100
+
 local typeof = getmetatable
 
 local function enum(t)
@@ -40,30 +47,124 @@ local Buf, Ins, Proto, Dump, KNum, KObj
 local MAX_REG = 200
 local MAX_UVS = 60
 
-local BC = enum {
-   [0] = 'ISLT', 'ISGE', 'ISLE', 'ISGT', 'ISEQV', 'ISNEV', 'ISEQS','ISNES',
-   'ISEQN', 'ISNEN', 'ISEQP', 'ISNEP', 'ISTC', 'ISFC', 'IST', 'ISF', 'MOV',
-   'NOT', 'UNM', 'LEN', 'ADDVN', 'SUBVN', 'MULVN', 'DIVVN', 'MODVN', 'ADDNV',
-   'SUBNV', 'MULNV', 'DIVNV', 'MODNV', 'ADDVV', 'SUBVV', 'MULVV', 'DIVVV',
-   'MODVV', 'POW', 'CAT', 'KSTR', 'KCDATA', 'KSHORT', 'KNUM', 'KPRI', 'KNIL',
-   'UGET', 'USETV', 'USETS', 'USETN', 'USETP', 'UCLO', 'FNEW', 'TNEW', 'TDUP',
-   'GGET', 'GSET', 'TGETV', 'TGETS', 'TGETB', 'TSETV', 'TSETS', 'TSETB',
-   'TSETM', 'CALLM', 'CALL', 'CALLMT', 'CALLT', 'ITERC', 'ITERN', 'VARG',
-   'ISNEXT', 'RETM', 'RET', 'RET0', 'RET1', 'FORI', 'JFORI', 'FORL', 'IFORL',
-   'JFORL', 'ITERL', 'IITERL', 'JITERL', 'LOOP', 'ILOOP', 'JLOOP', 'JMP',
-   'FUNCF', 'IFUNCF', 'JFUNCF', 'FUNCV', 'IFUNCV', 'JFUNCV', 'FUNCC', 'FUNCCW',
-}
+local function enum_mode(t)
+   local re, rm = {}, {}
+   local nskip = 0
+   for i = 1, #t do
+      local v = t[i]
+      if v[3] == false then
+         nskip = nskip + 1
+      else
+         local idx = i - nskip - 1
+         rm[idx ] = v[2]
+         re[v[1]] = idx
+      end
+   end
+   return re, rm
+end
 
 local BC_ABC = 0
 local BC_AD  = 1
 local BC_AJ  = 2
 
-local BC_MODE = {
-   [0] = 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-   1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1,
-   1, 0, 0, 0, 2, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2, 2, 1, 2, 2, 1, 2, 1,
-   1, 1, 1, 1, 1, 1, 1,
+local BC, BC_MODE = enum_mode {
+   { 'ISLT'  , BC_AD  },
+   { 'ISGE'  , BC_AD  },
+   { 'ISLE'  , BC_AD  },
+   { 'ISGT'  , BC_AD  },
+   { 'ISEQV' , BC_AD  },
+   { 'ISNEV' , BC_AD  },
+   { 'ISEQS' , BC_AD  },
+   { 'ISNES' , BC_AD  },
+   { 'ISEQN' , BC_AD  },
+   { 'ISNEN' , BC_AD  },
+   { 'ISEQP' , BC_AD  },
+   { 'ISNEP' , BC_AD  },
+   { 'ISTC'  , BC_AD  },
+   { 'ISFC'  , BC_AD  },
+   { 'IST'   , BC_AD  },
+   { 'ISF'   , BC_AD  },
+   { 'ISTYPE', BC_AD, jit_v21 },
+   { 'ISNUM' , BC_AD, jit_v21 },
+   { 'MOV'   , BC_AD  },
+   { 'NOT'   , BC_AD  },
+   { 'UNM'   , BC_AD  },
+   { 'LEN'   , BC_AD  },
+   { 'ADDVN' , BC_ABC },
+   { 'SUBVN' , BC_ABC },
+   { 'MULVN' , BC_ABC },
+   { 'DIVVN' , BC_ABC },
+   { 'MODVN' , BC_ABC },
+   { 'ADDNV' , BC_ABC },
+   { 'SUBNV' , BC_ABC },
+   { 'MULNV' , BC_ABC },
+   { 'DIVNV' , BC_ABC },
+   { 'MODNV' , BC_ABC },
+   { 'ADDVV' , BC_ABC },
+   { 'SUBVV' , BC_ABC },
+   { 'MULVV' , BC_ABC },
+   { 'DIVVV' , BC_ABC },
+   { 'MODVV' , BC_ABC },
+   { 'POW'   , BC_ABC },
+   { 'CAT'   , BC_ABC },
+   { 'KSTR'  , BC_AD  },
+   { 'KCDATA', BC_AD  },
+   { 'KSHORT', BC_AD  },
+   { 'KNUM'  , BC_AD  },
+   { 'KPRI'  , BC_AD  },
+   { 'KNIL'  , BC_AD  },
+   { 'UGET'  , BC_AD  },
+   { 'USETV' , BC_AD  },
+   { 'USETS' , BC_AD  },
+   { 'USETN' , BC_AD  },
+   { 'USETP' , BC_AD  },
+   { 'UCLO'  , BC_AJ  },
+   { 'FNEW'  , BC_AD  },
+   { 'TNEW'  , BC_AD  },
+   { 'TDUP'  , BC_AD  },
+   { 'GGET'  , BC_AD  },
+   { 'GSET'  , BC_AD  },
+   { 'TGETV' , BC_ABC },
+   { 'TGETS' , BC_ABC },
+   { 'TGETB' , BC_ABC },
+   { 'TGETR' , BC_ABC, jit_v21 },
+   { 'TSETV' , BC_ABC },
+   { 'TSETS' , BC_ABC },
+   { 'TSETB' , BC_ABC },
+   { 'TSETM' , BC_AD  },
+   { 'TSETR' , BC_ABC, jit_v21 },
+   { 'CALLM' , BC_ABC },
+   { 'CALL'  , BC_ABC },
+   { 'CALLMT', BC_AD  },
+   { 'CALLT' , BC_AD  },
+   { 'ITERC' , BC_ABC },
+   { 'ITERN' , BC_ABC },
+   { 'VARG'  , BC_ABC },
+   { 'ISNEXT', BC_AJ  },
+   { 'RETM'  , BC_AD  },
+   { 'RET'   , BC_AD  },
+   { 'RET0'  , BC_AD  },
+   { 'RET1'  , BC_AD  },
+   { 'FORI'  , BC_AJ  },
+   { 'JFORI' , BC_AJ  },
+   { 'FORL'  , BC_AJ  },
+   { 'IFORL' , BC_AJ  },
+   { 'JFORL' , BC_AD  },
+   { 'ITERL' , BC_AJ  },
+   { 'IITERL', BC_AJ  },
+   { 'JITERL', BC_AD  },
+   { 'LOOP'  , BC_AJ  },
+   { 'ILOOP' , BC_AJ  },
+   { 'JLOOP' , BC_AD  },
+   { 'JMP'   , BC_AJ  },
+   { 'FUNCF' , BC_AD  },
+   { 'IFUNCF', BC_AD  },
+   { 'JFUNCF', BC_AD  },
+   { 'FUNCV' , BC_AD  },
+   { 'IFUNCV', BC_AD  },
+   { 'JFUNCV', BC_AD  },
+   { 'FUNCC' , BC_AD  },
+   { 'FUNCCW', BC_AD  },
 }
 
 local VKNIL   = 0
@@ -1110,7 +1211,7 @@ Dump = {
    HEAD_1 = 0x1b;
    HEAD_2 = 0x4c;
    HEAD_3 = 0x4a;
-   VERS   = 0x01;
+   VERS   = jit_v21 and 0x02 or 0x01;
    BE     = 0x01;
    STRIP  = 0x02;
    FFI    = 0x04;
