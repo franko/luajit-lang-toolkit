@@ -9,7 +9,7 @@ local function dirop_compute(o, a, b)
    if     o == '+' then return a + b
    elseif o == '-' then return a - b
    elseif o == '*' then return a * b
-   elseif o == '/' and b ~= 0 then return a / b
+   elseif o == '/' then return a / b
    elseif o == '%' then return a % b
    elseif o == '^' then return a ^ b
    end
