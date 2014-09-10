@@ -26,11 +26,7 @@
 local bit  = require 'bit'
 local ffi  = require 'ffi'
 local util = require 'util'
-
-local has_jit, jit = pcall(function() return require 'jit' end)
-if not has_jit then
-   jit = { version_num = 20000 } -- fallback
-end
+local jit  = require 'jit'
 
 local jit_v21 = jit.version_num >= 20100
 
