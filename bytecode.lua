@@ -1142,7 +1142,6 @@ end
 function Proto.__index:close_block(reg, exit)
     if self.scope.need_uclo then
         if exit then
-            assert(not self.labels[name], "expected forward jump")
             self:enable_jump(exit)
             self:emit(BC.UCLO, reg, NO_JMP)
         else
@@ -1150,7 +1149,6 @@ function Proto.__index:close_block(reg, exit)
         end
     else
         if exit then
-            assert(not self.labels[name], "expected forward jump")
             self:enable_jump(exit)
             return self:emit(BC.JMP, reg, NO_JMP)
         end
