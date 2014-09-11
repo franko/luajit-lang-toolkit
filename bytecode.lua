@@ -416,7 +416,7 @@ function KObj.__index:write_kcdata(buf, v)
         buf:put_uleb128(u32_lo[0])
         buf:put_uleb128(u32_hi[0])
     else
-        assert('Unknown KCDATA : ' .. tostring(v))
+        assert(false, 'Unknown KCDATA : ' .. tostring(v))
     end
 end
 
