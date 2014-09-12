@@ -18,16 +18,16 @@ local function checkcond(ls, cond, em)
 end
 
 local function lex_opt(ls, tok)
-	if ls.token == tok then
-		ls:next()
-		return true
-	end
-	return false
+    if ls.token == tok then
+        ls:next()
+        return true
+    end
+    return false
 end
 
 local function lex_check(ls, tok)
-	if ls.token ~= tok then err_token(ls, tok) end
-	ls:next()
+    if ls.token ~= tok then err_token(ls, tok) end
+    ls:next()
 end
 
 local function lex_match(ls, what, who, line)
@@ -42,12 +42,12 @@ local function lex_match(ls, what, who, line)
 end
 
 local function lex_str(ls)
-	if ls.token ~= 'TK_name' and (LJ_52 or ls.token ~= 'TK_goto') then
-		err_token(ls, 'TK_name')
-	end
-	local s = ls.tokenval
-	ls:next()
-	return s
+    if ls.token ~= 'TK_name' and (LJ_52 or ls.token ~= 'TK_goto') then
+        err_token(ls, 'TK_name')
+    end
+    local s = ls.tokenval
+    ls:next()
+    return s
 end
 
 local expr_primary, expr, expr_unop, expr_binop, expr_simple
@@ -60,15 +60,15 @@ local function var_lookup(ast, ls)
 end
 
 local function expr_field(ast, ls, v)
-	ls:next() -- Skip dot or colon.
-	local key = lex_str(ls)
-	return ast:expr_property(v, key)
+    ls:next() -- Skip dot or colon.
+    local key = lex_str(ls)
+    return ast:expr_property(v, key)
 end
 
 local function expr_bracket(ast, ls)
-	ls:next() -- Skip '['.
-	local v = expr(ast, ls)
-	lex_check(ls, ']')
+    ls:next() -- Skip '['.
+    local v = expr(ast, ls)
+    lex_check(ls, ']')
     return v
 end
 
@@ -157,7 +157,7 @@ end
 
 -- Parse binary expressions with priority higher than the limit.
 function expr_binop(ast, ls, limit)
-	local v = expr_unop(ast, ls)
+    local v = expr_unop(ast, ls)
     local op = ls.token2str(ls.token)
     while operator.is_binop(op) and operator.left_priority(op) > limit do
         ls:next()
@@ -169,7 +169,7 @@ function expr_binop(ast, ls, limit)
 end
 
 function expr(ast, ls)
-	return expr_binop(ast, ls, 0) -- Priority 0: parse whole expression.
+    return expr_binop(ast, ls, 0) -- Priority 0: parse whole expression.
 end
 
 -- Parse primary expression.

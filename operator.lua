@@ -17,7 +17,7 @@ local unary_priority = 8
 local ident_priority = 16
 
 local function is_binop(op)
-	return binop[op]
+    return binop[op]
 end
 
 local function left_priority(op)
@@ -29,9 +29,9 @@ local function right_priority(op)
 end
 
 return {
-	is_binop       = is_binop,
-	left_priority  = left_priority,
-	right_priority = right_priority,
+    is_binop       = is_binop,
+    left_priority  = left_priority,
+    right_priority = right_priority,
     unary_priority = unary_priority,
     ident_priority = ident_priority,
 }
