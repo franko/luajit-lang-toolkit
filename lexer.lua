@@ -324,9 +324,11 @@ local function read_string(ls, delim)
                 while char_isspace(ls.current) do
                     if curr_is_newline(ls) then inclinenumber(ls) else nextchar(ls) end
                 end
+                c = nil
             elseif c == '\n' or c == '\r' then
                 save(ls, '\n')
                 inclinenumber(ls)
+                c = nil
             elseif c == '\\' or c == '\"' or c == '\''  or c == END_OF_STREAM then
             else
                 if not char_isdigit(c) then
@@ -340,12 +342,16 @@ local function read_string(ls, delim)
                         if bc > 255 then
                             lex_error(ls, 'TK_string', "invalid escape sequence")
                         end
+                        nextchar(ls)
                     end
                 end
-                c = strchar(bc)
+                save(ls, strchar(bc))
+                c = nil
             end
-            save(ls, c)
-            nextchar(ls)
+            if c then
+                save(ls, c)
+                nextchar(ls)
+            end
         else
             save_and_next(ls)
         end
