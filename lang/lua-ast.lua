@@ -1,4 +1,4 @@
-local build = require('syntax').build
+local build = require('lang.syntax').build
 
 local function ident(name, line)
     return build("Identifier", { name = name, line = line })

@@ -6,7 +6,7 @@
 -- Module to generate the Lua code that corresponds to a given Lua AST Tree.
 -- Can be used as an alternative to the bytecode generator.
 
-local operator = require("operator")
+local operator = require("lang.operator")
 
 local StatementRule = { }
 local ExpressionRule = { }

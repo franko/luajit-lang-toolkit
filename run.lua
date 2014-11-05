@@ -1,4 +1,4 @@
-local compile = require("compile")
+local compile = require("lang.compile")
 local bcsave = require("jit.bcsave")
 
 local function usage()

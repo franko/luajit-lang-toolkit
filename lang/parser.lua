@@ -1,4 +1,4 @@
-local operator = require("operator")
+local operator = require("lang.operator")
 
 local LJ_52 = false
 

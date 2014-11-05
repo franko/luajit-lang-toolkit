@@ -25,7 +25,7 @@
 
 local bit  = require 'bit'
 local ffi  = require 'ffi'
-local util = require 'util'
+local util = require 'lang.util'
 local jit  = require 'jit'
 
 local jit_v21 = jit.version_num >= 20100

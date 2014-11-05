@@ -9,11 +9,11 @@
 -- See Copyright Notice in LICENSE
 --
 
-local bc   = require('bytecode')
-local util = require('util')
+local bc   = require('lang.bytecode')
+local util = require('lang.util')
 
-local const_eval = require("ast-const-eval")
-local boolean_const_eval = require("ast-boolean-const-eval")
+local const_eval = require("lang.ast-const-eval")
+local boolean_const_eval = require("lang.ast-boolean-const-eval")
 
 local BC = bc.BC
 
