@@ -9,7 +9,8 @@
 #include "lualib.h"
 #include "language.h"
 
-#define LANG_INIT_FILENAME "lang/compile.lua"
+#define likely(x)   __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
 
 /* The position in the Lua stack of the loadstring and loadfile functions. */
 #define MY_LOADSTRING_INDEX 1
@@ -27,67 +28,6 @@ path_pushstring_sub(lua_State *L, const char *s, size_t len)
     }
 }
 
-/* Change package.path by substituting "./?.lua" with "lang/?.lua". */
-static int
-lang_fix_path(lua_State* L)
-{
-    int uslots = 1;
-    lua_pushstring(L, "package");
-    lua_rawget(L, LUA_GLOBALSINDEX);
-    /* stack: package */
-    if (unlikely(!lua_istable(L, -1))) { goto path_error; }
-    lua_getfield(L, -1, "path");
-    uslots += 1;
-    /* stack: package, package.path */
-    lua_pushvalue(L, -1);
-    lua_setfield(L, -3, "origin_path"); /* Save original "path" as package.origin_path. */
-    /* stack: package, package.path */
-    const char *path = lua_tostring(L, -1);
-    if (unlikely(!path)) { goto path_error; }
-    lua_pushstring(L, "");
-    /* stack: package, package.path, <new path string> */
-    while (1) {
-        const char *c = strchr(path, ';');
-        if (!c) break;
-        size_t len = c - path;
-        path_pushstring_sub(L, path, len);
-        lua_pushstring(L, ";");
-        lua_concat(L, 3);
-        path = c + 1;
-    }
-    path_pushstring_sub(L, path, strlen(path));
-    lua_concat(L, 2);
-    /* stack: package, package.path, <new path string> */
-    lua_setfield(L, -3, "path");
-    lua_pop(L, 2);
-    return 0;
-path_error:
-    lua_pop(L, uslots);
-    return 1;
-}
-
-int
-language_init(lua_State *L) {
-    parser_L = luaL_newstate();
-      if (unlikely(parser_L == NULL)) {
-        lua_pushstring(parser_L, "cannot create state: not enough memory");
-        return LUA_ERRRUN;
-    }
-    luaL_openlibs(parser_L);
-    lang_fix_path(parser_L);
-    int status = luaL_loadfile(parser_L, LANG_INIT_FILENAME);
-    if (unlikely(status != 0)) {
-        lua_pushstring(parser_L, "unable to load \"" LANG_INIT_FILENAME "\"");
-        return LUA_ERRRUN;
-    }
-    int load_status = lua_pcall(parser_L, 0, 2, 0);
-    if (!lua_isfunction(parser_L, MY_LOADSTRING_INDEX) ||
-        !lua_isfunction(parser_L, MY_LOADFILE_INDEX)) {
-        load_status = LUA_ERRRUN;
-    }
-    return load_status;
-}
-
 /* Pop a string from "parser_L" top of the stack and push it in "L" stack. */
 static void error_xtransfer(lua_State *L)
 {
@@ -103,6 +43,43 @@ static int loadbuffer_xtransfer(lua_State *L, const char *filename)
     int status = luaL_loadbuffer(L, code, code_len, filename);
     lua_pop(parser_L, 1);
     return status;
+}
+
+int
+language_init(lua_State *L) {
+    parser_L = luaL_newstate();
+      if (unlikely(parser_L == NULL)) {
+        lua_pushstring(L, "cannot create state: not enough memory");
+        return LUA_ERRRUN;
+    }
+    luaL_openlibs(parser_L);
+
+    lua_getglobal(parser_L, "require");
+    lua_pushstring(parser_L, "lang.compile");
+    int load_status = lua_pcall(parser_L, 1, 1, 0);
+    if (unlikely(load_status != 0)) {
+        error_xtransfer(L);
+        return LUA_ERRRUN;
+    }
+    if (lua_istable(parser_L, -1)) {
+        lua_pushstring(parser_L, "string");
+        lua_rawget(parser_L, -2);
+        lua_pushstring(parser_L, "file");
+        lua_rawget(parser_L, -3);
+        lua_remove(parser_L, -3);
+    } else {
+        lua_pop(parser_L, 1);
+        lua_pushstring(L, "module \"lang.compile\" does not load properly");
+        return LUA_ERRRUN;
+    }
+
+    if (!lua_isfunction(parser_L, MY_LOADSTRING_INDEX) ||
+        !lua_isfunction(parser_L, MY_LOADFILE_INDEX)) {
+        lua_pop(parser_L, 2);
+        lua_pushstring(L, "invalid compile functions");
+        load_status = LUA_ERRRUN;
+    }
+    return load_status;
 }
 
 static int
