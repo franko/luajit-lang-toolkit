@@ -32,11 +32,16 @@ RANLIB= ranlib
 
 ifeq ($(HOST_SYS),Windows)
   LUAJIT_CFLAGS := -IC:/fra/local/include
+  LUAJIT_LIBS := -LC:/fra/local/lib -llua51
 else
   LUAJIT_CFLAGS := $(shell pkg-config luajit --cflags)
+  LUAJIT_LIBS := $(shell pkg-config luajit --libs)
 endif
 
+CFLAGS = -g -Wall
+
 CFLAGS += $(LUAJIT_CFLAGS)
+LIBS += $(LUAJIT_LIBS)
 
 COMPILE = $(CC) $(CFLAGS) $(DEFS) $(INCLUDES)
 
@@ -48,7 +53,10 @@ DEPS_MAGIC := $(shell mkdir .deps > /dev/null 2>&1 || :)
 
 TARGETS = liblang.a
 
-all: $(TARGETS)
+all: $(TARGETS) luajit-x
+
+luajit-x: $(LANG_OBJ_FILES) luajit-x.o
+	$(COMPILE) -o $@ $(LANG_OBJ_FILES) luajit-x.o $(LIBS)
 
 liblang.a: $(LANG_OBJ_FILES)
 	@echo Archive $@
