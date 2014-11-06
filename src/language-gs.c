@@ -18,16 +18,6 @@
 
 lua_State *parser_L;
 
-static void
-path_pushstring_sub(lua_State *L, const char *s, size_t len)
-{
-    if (len == 7 && strncmp(s, "." LUA_DIRSEP "?.lua", 7) == 0) {
-        lua_pushstring(L, "lang" LUA_DIRSEP "?.lua");
-    } else {
-        lua_pushlstring(L, s, len);
-    }
-}
-
 /* Pop a string from "parser_L" top of the stack and push it in "L" stack. */
 static void error_xtransfer(lua_State *L)
 {
