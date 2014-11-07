@@ -39,7 +39,7 @@ local function lang_loadstring(src, filename, options)
 end
 
 local function lang_loadfile(filename, options)
-    return compile(reader.file(filename), filename, options)
+    return compile(reader.file(filename), filename or "=stdin", options)
 end
 
 return { string = lang_loadstring, file = lang_loadfile }
