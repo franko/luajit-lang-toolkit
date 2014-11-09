@@ -5,6 +5,7 @@ import subprocess
 
 test_dir = "tests"
 luajit_exec = "luajit"
+luajit_x = "./src/luajit-x"
 
 if not os.path.isdir("tests/log"):
 	try:
@@ -30,7 +31,7 @@ for dirpath, dirnames, filenames in os.walk(test_dir):
             out_tst = None
             run_error = False
             try:
-                out_tst = subprocess.check_output([luajit_exec, "run.lua", fullname])
+                out_tst = subprocess.check_output([luajit_x, fullname])
             except subprocess.CalledProcessError:
                 run_error = True
             out_ref = subprocess.check_output([luajit_exec, fullname])
