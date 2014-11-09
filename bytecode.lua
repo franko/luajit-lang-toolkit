@@ -546,7 +546,7 @@ end
 Proto = {
     CHILD  = 0x01; -- Has child prototypes.
     VARARG = 0x02; -- Vararg function.
-    FFI     = 0x04; -- Uses BC_KCDATA for FFI datatypes.
+    FFI    = 0x04; -- Uses BC_KCDATA for FFI datatypes.
     NOJIT  = 0x08; -- JIT disabled for this function.
     ILOOP  = 0x10; -- Patched bytecode with ILOOP etc.
 }
@@ -628,6 +628,11 @@ function Proto.__index:child(flags)
     self.kobj[#self.kobj + 1] = child
     return child
 end
+function Proto.__index:parent()
+    local parent = self.outer
+    parent.flags = bit.bor(parent.flags, bit.band(self.flags, Proto.FFI))
+    return parent
+end
 function Proto.__index:kpri(val)
     if val == nil then return VKNIL
     elseif val == true then return VKTRUE
@@ -653,6 +658,8 @@ function Proto.__index:const(val)
         local item = KObj.new(val)
         item.idx = #self.kobj
         self.kobj[#self.kobj + 1] = item
+        -- Set the FFI flag for the proto.
+        self.flags = bit.bor(self.flags, Proto.FFI)
         return item.idx
     else
         error("not a const: "..tostring(val))
@@ -1220,11 +1227,11 @@ Dump = {
     DEBUG  = false;
 }
 Dump.__index = {}
-function Dump.new(main, name, flags)
+function Dump.new(main, name)
     local self =  setmetatable({
         main  = main or Proto.new(Proto.VARARG);
         name  = name;
-        flags = flags or 0;
+        flags = bit.band(main.flags, Dump.FFI);
     }, Dump)
     return self
 end
