@@ -100,17 +100,6 @@ language_loadbuffer(lua_State *L, const char *buff, size_t sz, const char *name)
     return language_check_error(L, name, parse_status);
 }
 
-int
-language_loadbuffer_use_ext(lua_State *L, const char *buff, size_t sz, const char *name)
-{
-    lua_pushvalue(parser_L, MY_LOADSTRING_INDEX);
-    lua_pushlstring(parser_L, buff, sz);
-    lua_pushstring(parser_L, name);
-    lua_pushboolean(parser_L, 1);
-    int parse_status = lua_pcall(parser_L, 3, 2, 0);
-    return language_check_error(L, name, parse_status);
-}
-
 static void l_message(const char *pname, const char *msg)
 {
     if (pname) fprintf(stderr, "%s: ", pname);
