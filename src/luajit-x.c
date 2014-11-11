@@ -279,6 +279,58 @@ static int handle_script(lua_State *L, char **argv, int n)
   return report(L, status);
 }
 
+/* Load add-on module. */
+static int loadjitmodule(lua_State *L)
+{
+  lua_getglobal(L, "require");
+  lua_pushliteral(L, "jit.");
+  lua_pushvalue(L, -3);
+  lua_concat(L, 2);
+  if (lua_pcall(L, 1, 1, 0)) {
+    const char *msg = lua_tostring(L, -1);
+    if (msg && !strncmp(msg, "module ", 7))
+      goto nomodule;
+    return report(L, 1);
+  }
+  lua_getfield(L, -1, "start");
+  if (lua_isnil(L, -1)) {
+  nomodule:
+    l_message(progname,
+        "unknown luaJIT command or jit.* modules not installed");
+    return 1;
+  }
+  lua_remove(L, -2);  /* Drop module table. */
+  return 0;
+}
+
+/* Save or list bytecode. */
+static int dobytecode(lua_State *L, char **argv)
+{
+  int narg = 0;
+  lua_pushliteral(L, "bcsave");
+  if (loadjitmodule(L))
+    return 1;
+  if (argv[0][2]) {
+    narg++;
+    argv[0][1] = '-';
+    lua_pushstring(L, argv[0]+1);
+  }
+  for (argv++; *argv != NULL; narg++, argv++) {
+    size_t len = strlen(*argv);
+    if (len > 4 && strcmp((*argv) + len - 4, ".lua") == 0) {
+      /* Load the compiled function on the stack so that it will be passed to
+         the bcsave.start function. The LuaJIT code pass only the filename but
+         bcsave.start accepts either functions or filenames. */
+      if (language_loadfile(L, *argv) != 0) {
+        return 1;
+      }
+    } else {
+      lua_pushstring(L, *argv);
+    }
+  }
+  return report(L, lua_pcall(L, narg, 0, 0));
+}
+
 /* check that argument has no extra characters at the end */
 #define notail(x) {if ((x)[2] != '\0') return -1;}
 
@@ -317,6 +369,10 @@ static int collectargs(char **argv, int *flags)
         if (argv[i] == NULL) return -1;
       }
       break;
+    case 'b':  /* LuaJIT extension */
+      if (*flags) return -1;
+      *flags |= FLAGS_EXEC;
+      return 0;
     default: return -1;  /* invalid option */
     }
   }
@@ -346,6 +402,8 @@ static int runargs(lua_State *L, char **argv, int n)
         return 1;  /* stop if file fails */
       break;
       }
+    case 'b':  /* LuaJIT extension */
+      return dobytecode(L, argv+i);
     default: break;
     }
   }
