@@ -7,6 +7,7 @@ from glob import glob
 
 test_dir = "tests"
 luajit_exec = "luajit"
+luajit_x = "./src/luajit-x"
 diff_exec = "diff"
 
 def lua_files(test_dir):
@@ -133,7 +134,7 @@ for filename in glob("tests/log/*"):
 for dirpath, name in lua_files(test_dir):
 	fullname = os.path.join(dirpath, name + ".lua")
 
-	output_test = do_process_output([luajit_exec, "run.lua", "-bl", fullname])
+	output_test = do_process_output([luajit_x, "-bl", fullname])
 	msg, source = compare_to_ref(name, fullname, output_test)
 
 	led = " " if msg == "pass" else "*"
