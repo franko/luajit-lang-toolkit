@@ -167,9 +167,16 @@ local function bcread_bytecode(ls, sizebc)
 end
 
 local function bcread_uv(ls, sizeuv)
-    if sizeuv > 0 then
-        bcread_block(ls, sizeuv * 2)
-        printer:write(ls, "Upvalues")
+    printer:write(ls, ".. UV ..")
+    for i = 1, sizeuv do
+        local lo, hi = bcread_byte(ls), bcread_byte(ls)
+        if band(hi, 0x80) ~= 0 then
+            local constbit = band(hi, 0x40)
+            local hix = band(hi, 0x3f)
+            printer:write(ls, "upvalue %slocal %d", constbit ~= 0 and "(const) " or "", bor(lo, lshift(hix, 8)))
+        else
+            printer:write(ls, "upvalue uv index %d", bor(lo, lshift(hi, 8)))
+        end
     end
 end
 
