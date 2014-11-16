@@ -22,6 +22,25 @@ BCDUMP.F_KNOWN = BCDUMP.F_FFI*2-1
 
 local BCDUMP_KGC_CHILD, BCDUMP_KGC_TAB, BCDUMP_KGC_I64, BCDUMP_KGC_U64, BCDUMP_KGC_COMPLEX, BCDUMP_KGC_STR = 0, 1, 2, 3, 4, 5
 
+local function proto_flags_string(flags)
+    local REF = {
+        PROTO_CHILD  = 0x01,    -- Has child prototypes.
+        PROTO_VARARG = 0x02,    -- Vararg function.
+        PROTO_FFI    = 0x04,    -- Uses BC_KCDATA for FFI datatypes.
+        PROTO_NOJIT  = 0x08,    -- JIT disabled for this function.
+        PROTO_ILOOP  = 0x10,    -- Patched bytecode with ILOOP etc.
+        -- Only used during parsing.
+        PROTO_HAS_RETURN   = 0x20,    -- Already emitted a return.
+        PROTO_FIXUP_RETURN = 0x40,    -- Need to fixup emitted returns.
+    }
+
+    local t = {}
+    for name, bit in pairs(REF) do
+        if band(flags, bit) ~= 0 then t[#t+1] = name end
+    end
+    return #t > 0 and table.concat(t, "|") or "None"
+end
+
 local printer = {}
 
 local function bytes_row(bytes, n)
@@ -260,7 +279,7 @@ local function bcread_proto(ls)
 
     -- Read prototype header.
     local flags = bcread_byte(ls)
-    printer:write(ls, "prototype flags %02x", flags)
+    printer:write(ls, "prototype flags %s", proto_flags_string(flags))
     local numparams = bcread_byte(ls)
     printer:write(ls, "parameters number %d", numparams)
     local framesize = bcread_byte(ls)
