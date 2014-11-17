@@ -1,7 +1,7 @@
 local ffi = require("ffi")
 
 local band, bor, shl, shr, bnot = bit.band, bit.bor, bit.lshift, bit.rshift, bit.bnot
-local strsub, strbyte, strchar, format = string.sub, string.byte, string.char, string.format
+local strsub, strbyte, strchar, format, gsub = string.sub, string.byte, string.char, string.format, string.gsub
 
 local BCDUMP = {
     HEAD1 = 0x1b,
@@ -22,20 +22,168 @@ BCDUMP.F_KNOWN = BCDUMP.F_FFI*2-1
 
 local BCDUMP_KGC_CHILD, BCDUMP_KGC_TAB, BCDUMP_KGC_I64, BCDUMP_KGC_U64, BCDUMP_KGC_COMPLEX, BCDUMP_KGC_STR = 0, 1, 2, 3, 4, 5
 
-local function proto_flags_string(flags)
-    local REF = {
-        PROTO_CHILD  = 0x01,    -- Has child prototypes.
-        PROTO_VARARG = 0x02,    -- Vararg function.
-        PROTO_FFI    = 0x04,    -- Uses BC_KCDATA for FFI datatypes.
-        PROTO_NOJIT  = 0x08,    -- JIT disabled for this function.
-        PROTO_ILOOP  = 0x10,    -- Patched bytecode with ILOOP etc.
-        -- Only used during parsing.
-        PROTO_HAS_RETURN   = 0x20,    -- Already emitted a return.
-        PROTO_FIXUP_RETURN = 0x40,    -- Need to fixup emitted returns.
-    }
+local BCM_REF = {
+    'none', 'dst', 'base', 'var', 'rbase', 'uv',  -- Mode A must be <= 7
+    'lit', 'lits', 'pri', 'num', 'str', 'tab', 'func', 'jump', 'cdata'
+}
 
+local BCDEF_TAB = {
+    {'ISLT', 'var', 'none', 'var', 'lt'},
+    {'ISGE', 'var', 'none', 'var', 'lt'},
+    {'ISLE', 'var', 'none', 'var', 'le'},
+    {'ISGT', 'var', 'none', 'var', 'le'},
+
+    {'ISEQV', 'var', 'none', 'var', 'eq'},
+    {'ISNEV', 'var', 'none', 'var', 'eq'},
+    {'ISEQS', 'var', 'none', 'str', 'eq'},
+    {'ISNES', 'var', 'none', 'str', 'eq'},
+    {'ISEQN', 'var', 'none', 'num', 'eq'},
+    {'ISNEN', 'var', 'none', 'num', 'eq'},
+    {'ISEQP', 'var', 'none', 'pri', 'eq'},
+    {'ISNEP', 'var', 'none', 'pri', 'eq'},
+
+    -- Unary test and copy ops.
+    {'ISTC', 'dst', 'none', 'var', 'none'},
+    {'ISFC', 'dst', 'none', 'var', 'none'},
+    {'IST', 'none', 'none', 'var', 'none'},
+    {'ISF', 'none', 'none', 'var', 'none'},
+
+    -- Unary ops.
+    {'MOV', 'dst', 'none', 'var', 'none'},
+    {'NOT', 'dst', 'none', 'var', 'none'},
+    {'UNM', 'dst', 'none', 'var', 'unm'},
+    {'LEN', 'dst', 'none', 'var', 'len'},
+
+    -- Binary ops. ORDER OPR. VV last, POW must be next.
+    {'ADDVN', 'dst', 'var', 'num', 'add'},
+    {'SUBVN', 'dst', 'var', 'num', 'sub'},
+    {'MULVN', 'dst', 'var', 'num', 'mul'},
+    {'DIVVN', 'dst', 'var', 'num', 'div'},
+    {'MODVN', 'dst', 'var', 'num', 'mod'},
+
+    {'ADDNV', 'dst', 'var', 'num', 'add'},
+    {'SUBNV', 'dst', 'var', 'num', 'sub'},
+    {'MULNV', 'dst', 'var', 'num', 'mul'},
+    {'DIVNV', 'dst', 'var', 'num', 'div'},
+    {'MODNV', 'dst', 'var', 'num', 'mod'},
+
+    {'ADDVV', 'dst', 'var', 'var', 'add'},
+    {'SUBVV', 'dst', 'var', 'var', 'sub'},
+    {'MULVV', 'dst', 'var', 'var', 'mul'},
+    {'DIVVV', 'dst', 'var', 'var', 'div'},
+    {'MODVV', 'dst', 'var', 'var', 'mod'},
+
+    {'POW', 'dst', 'var', 'var', 'pow'},
+    {'CAT', 'dst', 'rbase', 'rbase', 'concat'},
+
+    -- Constant ops.
+    {'KSTR', 'dst', 'none', 'str', 'none'},
+    {'KCDATA', 'dst', 'none', 'cdata', 'none'},
+    {'KSHORT', 'dst', 'none', 'lits', 'none'},
+    {'KNUM', 'dst', 'none', 'num', 'none'},
+    {'KPRI', 'dst', 'none', 'pri', 'none'},
+    {'KNIL', 'base', 'none', 'base', 'none'},
+
+    -- Upvalue and function ops.
+    {'UGET', 'dst', 'none', 'uv', 'none'},
+    {'USETV', 'uv', 'none', 'var', 'none'},
+    {'USETS', 'uv', 'none', 'str', 'none'},
+    {'USETN', 'uv', 'none', 'num', 'none'},
+    {'USETP', 'uv', 'none', 'pri', 'none'},
+    {'UCLO', 'rbase', 'none', 'jump', 'none'},
+    {'FNEW', 'dst', 'none', 'func', 'gc'},
+
+    -- Table ops.
+    {'TNEW', 'dst', 'none', 'lit', 'gc'},
+    {'TDUP', 'dst', 'none', 'tab', 'gc'},
+    {'GGET', 'dst', 'none', 'str', 'index'},
+    {'GSET', 'var', 'none', 'str', 'newindex'},
+    {'TGETV', 'dst', 'var', 'var', 'index'},
+    {'TGETS', 'dst', 'var', 'str', 'index'},
+    {'TGETB', 'dst', 'var', 'lit', 'index'},
+    {'TSETV', 'var', 'var', 'var', 'newindex'},
+    {'TSETS', 'var', 'var', 'str', 'newindex'},
+    {'TSETB', 'var', 'var', 'lit', 'newindex'},
+    {'TSETM', 'base', 'none', 'num', 'newindex'},
+
+    -- Calls and vararg handling. T = tail call.
+    {'CALLM', 'base', 'lit', 'lit', 'call'},
+    {'CALL', 'base', 'lit', 'lit', 'call'},
+    {'CALLMT', 'base', 'none', 'lit', 'call'},
+    {'CALLT', 'base', 'none', 'lit', 'call'},
+    {'ITERC', 'base', 'lit', 'lit', 'call'},
+    {'ITERN', 'base', 'lit', 'lit', 'call'},
+    {'VARG', 'base', 'lit', 'lit', 'none'},
+    {'ISNEXT', 'base', 'none', 'jump', 'none'},
+
+    -- Returns.
+    {'RETM', 'base', 'none', 'lit', 'none'},
+    {'RET', 'rbase', 'none', 'lit', 'none'},
+    {'RET0', 'rbase', 'none', 'lit', 'none'},
+    {'RET1', 'rbase', 'none', 'lit', 'none'},
+
+    -- Loops and branches. I/J = interp/JIT, I/C/L = init/call/loop.
+    {'FORI', 'base', 'none', 'jump', 'none'},
+    {'JFORI', 'base', 'none', 'jump', 'none'},
+
+    {'FORL', 'base', 'none', 'jump', 'none'},
+    {'IFORL', 'base', 'none', 'jump', 'none'},
+    {'JFORL', 'base', 'none', 'lit', 'none'},
+
+    {'ITERL', 'base', 'none', 'jump', 'none'},
+    {'IITERL', 'base', 'none', 'jump', 'none'},
+    {'JITERL', 'base', 'none', 'lit', 'none'},
+
+    {'LOOP', 'rbase', 'none', 'jump', 'none'},
+    {'ILOOP', 'rbase', 'none', 'jump', 'none'},
+    {'JLOOP', 'rbase', 'none', 'lit', 'none'},
+
+    {'JMP', 'rbase', 'none', 'jump', 'none'},
+
+    -- Function headers. I/J = interp/JIT, F/V/C = fixarg/vararg/C func.
+    {'FUNCF', 'rbase', 'none', 'none', 'none'},
+    {'IFUNCF', 'rbase', 'none', 'none', 'none'},
+    {'JFUNCF', 'rbase', 'none', 'lit', 'none'},
+    {'FUNCV', 'rbase', 'none', 'none', 'none'},
+    {'IFUNCV', 'rbase', 'none', 'none', 'none'},
+    {'JFUNCV', 'rbase', 'none', 'lit', 'none'},
+    {'FUNCC', 'rbase', 'none', 'none', 'none'},
+    {'FUNCCW', 'rbase',  'none', 'none', 'none'},
+}
+
+local BC, BCMODE = {}, {}
+
+local function BCM(name)
+    for i = 1, #BCM_REF do
+        if BCM_REF[i] == name then return i - 1 end
+    end
+end
+
+local function BCDEF_EVAL()
+    for i = 1, #BCDEF_TAB do
+        local li = BCDEF_TAB[i]
+        local name, ma, mb, mc = li[1], BCM(li[2]), BCM(li[3]), BCM(li[4])
+        BC[i-1] = name
+        BCMODE[i-1] = bor(ma, shl(mb, 3), shl(mc, 7))
+    end
+end
+
+BCDEF_EVAL()
+
+local PROTO_REF = {
+    PROTO_CHILD  = 0x01,    -- Has child prototypes.
+    PROTO_VARARG = 0x02,    -- Vararg function.
+    PROTO_FFI    = 0x04,    -- Uses BC_KCDATA for FFI datatypes.
+    PROTO_NOJIT  = 0x08,    -- JIT disabled for this function.
+    PROTO_ILOOP  = 0x10,    -- Patched bytecode with ILOOP etc.
+    -- Only used during parsing.
+    PROTO_HAS_RETURN   = 0x20,    -- Already emitted a return.
+    PROTO_FIXUP_RETURN = 0x40,    -- Need to fixup emitted returns.
+}
+
+local function proto_flags_string(flags)
     local t = {}
-    for name, bit in pairs(REF) do
+    for name, bit in pairs(PROTO_REF) do
         if band(flags, bit) ~= 0 then t[#t+1] = name end
     end
     return #t > 0 and table.concat(t, "|") or "None"
@@ -154,6 +302,66 @@ end
 
 local bcread_block = bcread_mem
 
+
+local function ctlsub(c)
+    if c == "\n" then return "\\n"
+elseif c == "\r" then return "\\r"
+    elseif c == "\t" then return "\\t"
+    else return format("\\%03d", byte(c))
+    end
+end
+
+local function bcread_ins(ls)
+    local op = bcread_byte(ls)
+    local a = bcread_byte(ls)
+    local b = bcread_byte(ls)
+    local c = bcread_byte(ls)
+    local ins = bor(op, shl(a, 8), shl(b, 16), shl(c, 24))
+    return ins, BCMODE[op]
+end
+
+-- Return one bytecode line.
+local function bcline(ls, pc, prefix)
+    local ins, m = bcread_ins(ls)
+    if not ins then return end
+    local ma, mb, mc = band(m, 7), band(m, 15*8), band(m, 15*128)
+    local a = band(shr(ins, 8), 0xff)
+    local op = BC[band(ins, 0xff)]
+    local s = format("%04d %s %-6s %3s ", pc, prefix or "  ", op, ma == 0 and "" or a)
+    local d = shr(ins, 16)
+    if mc == 13*128 then -- BCMjump
+        return format("%s=> %04d", s, pc+d-0x7fff)
+    end
+    if mb ~= 0 then
+        d = band(d, 0xff)
+    elseif mc == 0 then
+        return s
+    end
+    local kc
+    if mc == 10*128 then -- BCMstr
+        kc = format("<kgc string: %d>", d)
+    elseif mc == 9*128 then -- BCMnum
+        kc = format("<knum: %d>", d)
+        if op == "TSETM " then kc = kc - 2^52 end
+    elseif mc == 12*128 then -- BCMfunc
+        kc = format("<function: %d>", d)
+    elseif mc == 5*128 then -- BCMuv
+        kc = format("<uv: %d>", d)
+    end
+    if ma == 5 then -- BCMuv
+        local ka = format("<uv: %d>", a)
+        if kc then kc = ka.." ; "..kc else kc = ka end
+    end
+    if mb ~= 0 then
+        local b = shr(ins, 24)
+        if kc then return format("%s%3d %3d  ; %s", s, b, d, kc) end
+        return format("%s%3d %3d", s, b, d)
+    end
+    if kc then return format("%s%3d      ; %s", s, d, kc) end
+    if mc == 7*128 and d > 32767 then d = d - 65536 end -- BCMlits
+    return format("%s%3d", s, d)
+end
+
 local function flags_string(flags)
     local t = {}
     if band(flags, BCDUMP.F_FFI) ~= 0 then t[#t+1] = "BCDUMP_F_FFI" end
@@ -181,8 +389,11 @@ local function bcread_header(ls)
 end
 
 local function bcread_bytecode(ls, sizebc)
-    bcread_block(ls, (sizebc - 1) * 4)
-    printer:write(ls, "Bytecode")
+    printer:write(ls, ".. bytecode ..")
+    for pc = 1, sizebc - 1 do
+        local ins = bcline(ls, pc)
+        printer:write(ls, ins)
+    end
 end
 
 local function bcread_uv(ls, sizeuv)
