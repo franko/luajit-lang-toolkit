@@ -257,39 +257,31 @@ local function bcread_byte(ls)
 end
 
 local function bcread_uleb128(ls)
-    local v = byte(ls)
-    local p = ls.p + 1
+    local v = bcread_byte(ls)
     if v >= 0x80 then
         local sh = 0
         v = band(v, 0x7f)
         repeat
-            local b = byte(ls, p)
+            local b = bcread_byte(ls)
             v = bor(v, shl(band(b, 0x7f), sh + 7))
-            p, sh = p + 1, sh + 7
-            bcread_dec(ls)
+            sh = sh + 7
         until b < 0x80
     end
-    bcread_dec(ls)
-    ls.p = p
     return v
 end
 
 -- Read top 32 bits of 33 bit ULEB128 value from buffer.
 local function bcread_uleb128_33(ls)
-    local v = shr(byte(ls), 1)
-    local p = ls.p + 1
+    local v = shr(bcread_byte(ls), 1)
     if v >= 0x40 then
         local sh = -1
         v = band(v, 0x3f)
         repeat
-            local b = byte(ls, p)
+            local b = bcread_byte(ls)
             v = bor(v, shl(band(b, 0x7f), sh + 7))
-            p, sh = p + 1, sh + 7
-            bcread_dec(ls)
+            sh = sh + 7
         until b < 0x80
     end
-    bcread_dec(ls)
-    ls.p = p
     return v
 end
 
