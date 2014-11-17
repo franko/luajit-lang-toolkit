@@ -298,6 +298,10 @@ local function dword_get_u32(cdata_new, v)
     return u32_lo, u32_hi
 end
 
+Buf.__index.put_uint7 = function(self, v)
+    return self:put_uint8(v * 2)
+end
+
 Buf.__index.put_number = function(self, v)
     local offs = self.offs
     local u32_lo, u32_hi = dword_get_u32(double_new, v)
@@ -469,7 +473,12 @@ function KNum.new(v)
     return setmetatable({ v }, KNum)
 end
 function KNum.__index:write(buf)
-    buf:put_number(self[1])
+    local v = self[1]
+    if v % 1 == 0 and v >= 0 and v < 128 then
+        buf:put_uint7(v)
+    else
+        buf:put_number(v)
+    end
 end
 
 -- Determine if a backward jump up to "label_name" needs an UCLO instruction.
