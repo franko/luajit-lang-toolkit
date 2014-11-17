@@ -1,6 +1,6 @@
 local ffi = require("ffi")
 
-local band, bor, lshift, rshift, bnot = bit.band, bit.bor, bit.lshift, bit.rshift, bit.bnot
+local band, bor, shl, shr, bnot = bit.band, bit.bor, bit.lshift, bit.rshift, bit.bnot
 local strsub, strbyte, strchar, format = string.sub, string.byte, string.char, string.format
 
 local BCDUMP = {
@@ -116,7 +116,7 @@ local function bcread_uleb128(ls)
         v = band(v, 0x7f)
         repeat
             local b = byte(ls, p)
-            v = bor(v, lshift(band(b, 0x7f), sh + 7))
+            v = bor(v, shl(band(b, 0x7f), sh + 7))
             p, sh = p + 1, sh + 7
             bcread_dec(ls)
         until b < 0x80
@@ -128,14 +128,14 @@ end
 
 -- Read top 32 bits of 33 bit ULEB128 value from buffer.
 local function bcread_uleb128_33(ls)
-    local v = rshift(byte(ls), 1)
+    local v = shr(byte(ls), 1)
     local p = ls.p + 1
     if v >= 0x40 then
         local sh = -1
         v = band(v, 0x3f)
         repeat
             local b = byte(ls, p)
-            v = bor(v, lshift(band(b, 0x7f), sh + 7))
+            v = bor(v, shl(band(b, 0x7f), sh + 7))
             p, sh = p + 1, sh + 7
             bcread_dec(ls)
         until b < 0x80
@@ -192,9 +192,9 @@ local function bcread_uv(ls, sizeuv)
         if band(hi, 0x80) ~= 0 then
             local constbit = band(hi, 0x40)
             local hix = band(hi, 0x3f)
-            printer:write(ls, "upvalue %slocal %d", constbit ~= 0 and "(const) " or "", bor(lo, lshift(hix, 8)))
+            printer:write(ls, "upvalue %slocal %d", constbit ~= 0 and "(const) " or "", bor(lo, shl(hix, 8)))
         else
-            printer:write(ls, "upvalue uv index %d", bor(lo, lshift(hi, 8)))
+            printer:write(ls, "upvalue uv index %d", bor(lo, shl(hi, 8)))
         end
     end
 end
