@@ -27,6 +27,8 @@ local bit  = require 'bit'
 local ffi  = require 'ffi'
 local jit  = require 'jit'
 
+local band, bor, shl, shr, bnot = bit.band, bit.bor, bit.lshift, bit.rshift, bit.bnot
+
 local jit_v21 = jit.version_num >= 20100
 
 local typeof = getmetatable
@@ -166,7 +168,7 @@ local VKNIL   = 0
 local VKFALSE = 1
 local VKTRUE  = 2
 
-local NO_JMP = bit.bnot(0)
+local NO_JMP = bnot(0)
 
 -- Type codes for the GC constants of a prototype. Plus length for strings.
 local KOBJ = enum {
@@ -238,7 +240,7 @@ Buf.__index.put_uint16 = function(self, v)
     local offs = self.offs
     local dptr = self.data + offs
     dptr[0] = v
-    v = bit.rshift(v, 8)
+    v = shr(v, 8)
     dptr[1] = v
     self.offs = offs + 2
     return offs
@@ -250,11 +252,11 @@ Buf.__index.put_uint32 = function(self, v)
     local dptr = self.data + offs
 
     dptr[0] = v
-    v = bit.rshift(v, 8)
+    v = shr(v, 8)
     dptr[1] = v
-    v = bit.rshift(v, 8)
+    v = shr(v, 8)
     dptr[2] = v
-    v = bit.rshift(v, 8)
+    v = shr(v, 8)
     dptr[3] = v
 
     self.offs = offs + 4
@@ -263,14 +265,14 @@ end
 
 Buf.__index.put_uleb128 = function(self,  v)
     local offs = self.offs
-    local b = bit.band(v, 0x7f)
-    v = bit.rshift(v, 7)
-    if v ~= 0 then b = bit.bor(b, 0x80) end
+    local b = band(v, 0x7f)
+    v = shr(v, 7)
+    if v ~= 0 then b = bor(b, 0x80) end
     self:put(b)
     while v > 0 do
-        b = bit.band(v, 0x7f)
-        v = bit.rshift(v, 7)
-        if v ~= 0 then b = bit.bor(b, 0x80) end
+        b = band(v, 0x7f)
+        v = shr(v, 7)
+        if v ~= 0 then b = bor(b, 0x80) end
         self:put(b)
     end
     return offs
@@ -280,14 +282,14 @@ end
 -- This last argument should be either 0 or 1.
 Buf.__index.put_uleb128_33 = function(self,  v, numbit)
     local offs = self.offs
-    local b = bit.bor(bit.lshift(bit.band(v, 0x3f), 1), numbit)
-    v = bit.rshift(v, 6)
-    if v ~= 0 then b = bit.bor(b, 0x80) end
+    local b = bor(shl(band(v, 0x3f), 1), numbit)
+    v = shr(v, 6)
+    if v ~= 0 then b = bor(b, 0x80) end
     self:put(b)
     while v > 0 do
-        b = bit.band(v, 0x7f)
-        v = bit.rshift(v, 7)
-        if v ~= 0 then b = bit.bor(b, 0x80) end
+        b = band(v, 0x7f)
+        v = shr(v, 7)
+        if v ~= 0 then b = bor(b, 0x80) end
         self:put(b)
     end
     return offs
@@ -373,13 +375,13 @@ local function hsize2hbits(s)
     s = s - 1
     local c = 0
     while s > 0 do
-        s = bit.rshift(s, 1)
+        s = shr(s, 1)
         c = c + 1
     end
     return c
 end
 local function tabsize(narr, nrec)
-    return bit.bor(narr, bit.lshift(hsize2hbits(nrec), 11))
+    return bor(narr, shl(hsize2hbits(nrec), 11))
 end
 function Ins.__index.tnewsize(narry, nhash)
     if narry then
@@ -636,7 +638,7 @@ function Proto.__index:set_line(firstline, lastline)
     self.numlines = lastline - firstline
 end
 function Proto.__index:child(flags)
-    self.flags = bit.bor(self.flags, Proto.CHILD)
+    self.flags = bor(self.flags, Proto.CHILD)
     local child = Proto.new(flags, self)
     child.idx = #self.kobj
     self.kobj[child] = #self.kobj
@@ -645,7 +647,7 @@ function Proto.__index:child(flags)
 end
 function Proto.__index:parent()
     local parent = self.outer
-    parent.flags = bit.bor(parent.flags, bit.band(self.flags, Proto.FFI))
+    parent.flags = bor(parent.flags, band(self.flags, Proto.FFI))
     return parent
 end
 function Proto.__index:kpri(val)
@@ -674,7 +676,7 @@ function Proto.__index:const(val)
         item.idx = #self.kobj
         self.kobj[#self.kobj + 1] = item
         -- Set the FFI flag for the proto.
-        self.flags = bit.bor(self.flags, Proto.FFI)
+        self.flags = bor(self.flags, Proto.FFI)
         return item.idx
     else
         error("not a const: "..tostring(val))
@@ -700,7 +702,7 @@ function Proto.__index:emit(op, a, b, c)
 end
 function Proto.__index:write(buf)
     local has_child
-    if bit.band(self.flags, Proto.CHILD) ~= 0 then
+    if band(self.flags, Proto.CHILD) ~= 0 then
         has_child = true
         for i=1, #self.kobj do
             local o = self.kobj[i]
@@ -748,7 +750,7 @@ function Proto.__index:write_body(buf)
         if uval.outer_idx then
             -- the upvalue refer to a local of the enclosing function
             local btag = uval.vinfo.mutable and 0x8000 or 0xc000
-            local uv = bit.bor(uval.outer_idx, btag)
+            local uv = bor(uval.outer_idx, btag)
             buf:put_uint16(uv)
         else
             -- the upvalue refer to an upvalue of the enclosing function
@@ -1141,8 +1143,8 @@ end
 function Proto.__index:op_tsetm(base, vnum)
     local knum = double_new(0)
     local vint = ffi.cast('uint8_t*', knum)
-    vint[0] = bit.band(vnum, 0x00FF)
-    vint[1] = bit.rshift(vnum, 8)
+    vint[0] = band(vnum, 0x00FF)
+    vint[1] = shr(vnum, 8)
     local vidx = self:const(tonumber(knum[0]))
     return self:emit(BC.TSETM, base, vidx)
 end
@@ -1245,7 +1247,7 @@ function Dump.new(main, name)
     local self =  setmetatable({
         main  = main or Proto.new(Proto.VARARG);
         name  = name;
-        flags = bit.band(main.flags, Dump.FFI);
+        flags = band(main.flags, Dump.FFI);
     }, Dump)
     return self
 end
@@ -1256,7 +1258,7 @@ function Dump.__index:write_header(buf)
     buf:put(Dump.VERS)
     buf:put(self.flags)
     local name = string.gsub(self.name, "[^/\\]+[/\\]", "")
-    if bit.band(self.flags, Dump.STRIP) == 0 then
+    if band(self.flags, Dump.STRIP) == 0 then
         if not name then
             name = '(binary)'
         end
