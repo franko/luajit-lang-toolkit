@@ -193,8 +193,8 @@ ffi.cdef[[
     int free(void*);
 
     typedef struct Buf {
-        size_t size;
-        size_t offs;
+        unsigned int size;
+        unsigned int offs;
         uint8_t *data;
     } Buf;
 ]]
