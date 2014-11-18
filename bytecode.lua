@@ -263,7 +263,6 @@ Buf.__index.put_uint32 = function(self, v)
 end
 
 Buf.__index.put_uleb128 = function(self,  v)
-    v = tonumber(v)
     local offs = self.offs
     local b = bit.band(v, 0x7f)
     v = bit.rshift(v, 7)
@@ -281,7 +280,6 @@ end
 -- Write a 32 bit unsigned integer + 1 bit given by "numbit".
 -- This last argument should be either 0 or 1.
 Buf.__index.put_uleb128_33 = function(self,  v, numbit)
-    v = tonumber(v)
     local offs = self.offs
     local b = bit.bor(bit.lshift(bit.band(v, 0x3f), 1), numbit)
     v = bit.rshift(v, 6)
