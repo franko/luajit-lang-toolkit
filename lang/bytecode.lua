@@ -198,6 +198,10 @@ ffi.cdef[[
     } Buf;
 ]]
 
+local function num_is_int32(x)
+    return x % 1 == 0 and x >= -2^31 and x < 2^31
+end
+
 Buf = {}
 Buf.new = function(size)
     if not size then
@@ -260,16 +264,35 @@ end
 
 Buf.__index.put_uleb128 = function(self,  v)
     v = tonumber(v)
-    local i, offs = 0, self.offs
-    repeat
-        local b = bit.band(v, 0x7f)
+    local offs = self.offs
+    local b = bit.band(v, 0x7f)
+    v = bit.rshift(v, 7)
+    if v ~= 0 then b = bit.bor(b, 0x80) end
+    self:put(b)
+    while v > 0 do
+        b = bit.band(v, 0x7f)
         v = bit.rshift(v, 7)
-        if v ~= 0 then
-            b = bit.bor(b, 0x80)
-        end
+        if v ~= 0 then b = bit.bor(b, 0x80) end
         self:put(b)
-        i = i + 1
-    until v == 0
+    end
+    return offs
+end
+
+-- Write a 32 bit unsigned integer + 1 bit given by "numbit".
+-- This last argument should be either 0 or 1.
+Buf.__index.put_uleb128_33 = function(self,  v, numbit)
+    v = tonumber(v)
+    local offs = self.offs
+    local b = bit.bor(bit.lshift(bit.band(v, 0x3f), 1), numbit)
+    v = bit.rshift(v, 6)
+    if v ~= 0 then b = bit.bor(b, 0x80) end
+    self:put(b)
+    while v > 0 do
+        b = bit.band(v, 0x7f)
+        v = bit.rshift(v, 7)
+        if v ~= 0 then b = bit.bor(b, 0x80) end
+        self:put(b)
+    end
     return offs
 end
 
@@ -298,20 +321,15 @@ local function dword_get_u32(cdata_new, v)
     return u32_lo, u32_hi
 end
 
-Buf.__index.put_uint7 = function(self, v)
-    return self:put_uint8(v * 2)
-end
-
 Buf.__index.put_number = function(self, v)
     local offs = self.offs
-    local u32_lo, u32_hi = dword_get_u32(double_new, v)
-
-    self:put_uleb128(1 + 2 * u32_lo[0]) -- 33 bits with lsb set
-    if u32_lo[0] >= 0x80000000 then
-        self.data[self.offs-1] = bit.bor(self.data[self.offs-1], 0x10)
+    if num_is_int32(v) then
+        self:put_uleb128_33(v, 0)
+    else
+        local lo, hi = dword_get_u32(double_new, v)
+        self:put_uleb128_33(lo[0], 1)
+        self:put_uleb128(hi[0])
     end
-    self:put_uleb128(u32_hi[0])
-
     return offs
 end
 
@@ -426,10 +444,6 @@ function KObj.__index:write_kcdata(buf, v)
     end
 end
 
-local function num_is_int32(x)
-    return x % 1 == 0 and x >= -2^31 and x < 2^31
-end
-
 local function write_ktabk(buf, val, narrow)
     local tp = type(val)
     if tp == "string" then
@@ -473,12 +487,7 @@ function KNum.new(v)
     return setmetatable({ v }, KNum)
 end
 function KNum.__index:write(buf)
-    local v = self[1]
-    if v % 1 == 0 and v >= 0 and v < 128 then
-        buf:put_uint7(v)
-    else
-        buf:put_number(v)
-    end
+    buf:put_number(self[1])
 end
 
 -- Determine if a backward jump up to "label_name" needs an UCLO instruction.
