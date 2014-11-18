@@ -314,10 +314,10 @@ local uint64_new = ffi.typeof('uint64_t[1]')
 local function dword_get_u32(cdata_new, v)
     local p = cdata_new(v)
     local char = ffi.cast('uint8_t*', p)
-    local u32_lo, u32_hi = uint32_new(0), uint32_new(0)
-    ffi.copy(u32_lo, char, 4)
-    ffi.copy(u32_hi, char + 4, 4)
-    return u32_lo, u32_hi
+    local lo, hi = uint32_new(0), uint32_new(0)
+    ffi.copy(lo, char, 4)
+    ffi.copy(hi, char + 4, 4)
+    return lo[0], hi[0]
 end
 
 Buf.__index.put_number = function(self, v)
@@ -326,8 +326,8 @@ Buf.__index.put_number = function(self, v)
         self:put_uleb128_33(v, 0)
     else
         local lo, hi = dword_get_u32(double_new, v)
-        self:put_uleb128_33(lo[0], 1)
-        self:put_uleb128(hi[0])
+        self:put_uleb128_33(lo, 1)
+        self:put_uleb128(hi)
     end
     return offs
 end
@@ -422,22 +422,22 @@ end
 function KObj.__index:write_kcdata(buf, v)
     if ffi.istype('double complex', v) then
         buf:put_uleb128(KOBJ.COMPLEX)
-        local u32_lo, u32_hi = dword_get_u32(double_new, v[0])
-        buf:put_uleb128(u32_lo[0])
-        buf:put_uleb128(u32_hi[0])
-        u32_lo, u32_hi = dword_get_u32(double_new, v[1])
-        buf:put_uleb128(u32_lo[0])
-        buf:put_uleb128(u32_hi[0])
+        local lo, hi = dword_get_u32(double_new, v[0])
+        buf:put_uleb128(lo)
+        buf:put_uleb128(hi)
+        lo, hi = dword_get_u32(double_new, v[1])
+        buf:put_uleb128(lo)
+        buf:put_uleb128(hi)
     elseif ffi.istype('uint64_t', v) then
         buf:put_uleb128(KOBJ.U64)
-        local u32_lo, u32_hi = dword_get_u32(uint64_new, v)
-        buf:put_uleb128(u32_lo[0])
-        buf:put_uleb128(u32_hi[0])
+        local lo, hi = dword_get_u32(uint64_new, v)
+        buf:put_uleb128(lo)
+        buf:put_uleb128(hi)
     elseif ffi.istype('int64_t', v) then
         buf:put_uleb128(KOBJ.I64)
-        local u32_lo, u32_hi = dword_get_u32(int64_new, v)
-        buf:put_uleb128(u32_lo[0])
-        buf:put_uleb128(u32_hi[0])
+        local lo, hi = dword_get_u32(int64_new, v)
+        buf:put_uleb128(lo)
+        buf:put_uleb128(hi)
     else
         assert(false, 'Unknown KCDATA : ' .. tostring(v))
     end
@@ -454,10 +454,10 @@ local function write_ktabk(buf, val, narrow)
             buf:put_uleb128(val)
             return
         end
-        local u32_lo, u32_hi = dword_get_u32(double_new, val)
+        local lo, hi = dword_get_u32(double_new, val)
         buf:put(KTAB.NUM)
-        buf:put_uleb128(u32_lo[0])
-        buf:put_uleb128(u32_hi[0])
+        buf:put_uleb128(lo)
+        buf:put_uleb128(hi)
     elseif tp == "boolean" then
         buf:put(val and KTAB.TRUE or KTAB.FALSE)
     elseif tp == "nil" then
