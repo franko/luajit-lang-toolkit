@@ -25,7 +25,6 @@
 
 local bit  = require 'bit'
 local ffi  = require 'ffi'
-local util = require 'util'
 local jit  = require 'jit'
 
 local jit_v21 = jit.version_num >= 20100
@@ -898,7 +897,6 @@ function Proto.__index:upval(name)
     return self.upvals[name].idx
 end
 function Proto.__index:here(name)
-    if name == nil then name = util.genid() end
     if self.tohere[name] then
         -- forward jump
         local back = self.tohere[name]
