@@ -255,11 +255,31 @@ local function bcread_byte(ls)
     return b
 end
 
+local function bcread_uint16(ls)
+    local a, b = strbyte(ls.data, ls.p, ls.p + 1)
+    bcread_consume(ls, 2)
+    ls.p = ls.p + 2
+    return bor(shl(b, 8), a)
+end
+
 local function bcread_uint32(ls)
     local a, b, c, d = strbyte(ls.data, ls.p, ls.p + 3)
     bcread_consume(ls, 4)
     ls.p = ls.p + 4
     return bor(shl(d, 24), shl(c, 16), shl(b, 8), a)
+end
+
+local function bcread_string(ls)
+    local p = ls.p
+    while byte(ls, p) ~= 0 and ls.n > 0 do
+        p = p + 1
+    end
+    assert(byte(ls, p) == 0 and p > ls.p, "corrupted bytecode")
+    local s = strsub(ls.data, ls.p, p - 1)
+    local len = p - ls.p + 1
+    bcread_consume(ls, len)
+    ls.p = p + 1
+    return s
 end
 
 local function bcread_uleb128(ls)
@@ -466,9 +486,56 @@ local function bcread_knum(ls, sizekn)
     end
 end
 
-local function bcread_dbg(ls, sizedbg)
-    bcread_block(ls, sizedbg)
-    printer:write(ls, "Debug informations")
+local function bcread_lineinfo(ls, firstline, numline, sizebc, sizedbg)
+    if numline < 256 then
+        for pc = 1, sizebc - 1 do
+            local line = bcread_byte(ls)
+            printer:write(ls, "pc%03d: line %d", pc, firstline + line)
+        end
+    elseif numline < 65536 then
+        for pc = 1, sizebc - 1 do
+            local line = bcread_uint16(ls)
+            printer:write(ls, "pc%03d: line %d", pc, firstline + line)
+        end
+    else
+        for pc = 1, sizebc - 1 do
+            local line = bcread_uint32(ls)
+            printer:write(ls, "pc%03d: line %d", pc, firstline + line)
+        end
+    end
+end
+
+local function bcread_uvinfo(ls, sizeuv)
+    for i = 1, sizeuv do
+        local name = bcread_string(ls)
+        printer:write(ls, "uv%d: name: %s", i - 1, name)
+    end
+end
+
+local function bcread_varinfo(ls)
+    local VARNAME__MAX = 7
+    local lastpc = 0
+    while true do
+        local vn = byte(ls)
+        local name = "(special var name)"
+        if vn < VARNAME__MAX then
+            bcread_byte(ls)
+            if vn == 0 then break end
+        else
+            name = bcread_string(ls)
+        end
+        local startpc = lastpc + bcread_uleb128(ls)
+        local endpc = startpc + bcread_uleb128(ls)
+        printer:write(ls, "var: %s pc: %d - %d", name, startpc, endpc)
+        lastpc = startpc
+    end
+end
+
+local function bcread_dbg(ls, firstline, numline, sizebc, sizeuv, sizedbg)
+    printer:write(ls, ".. debug info ..")
+    bcread_lineinfo(ls, firstline, numline, sizebc, sizedbg)
+    bcread_uvinfo(ls, sizeuv)
+    bcread_varinfo(ls)
 end
 
 local function bcread_proto(ls)
@@ -477,6 +544,8 @@ local function bcread_proto(ls)
         printer:write(ls, "eof")
         return false
     end
+    printer:write(ls, "")
+    printer:write(ls, ".. Prototype ..")
     local len = bcread_uleb128(ls)
     local startn = ls.n
     printer:write(ls, "prototype length: %d", len)
@@ -513,7 +582,7 @@ local function bcread_proto(ls)
     bcread_knum(ls, sizekn)
 
     if sizedbg > 0 then
-        bcread_dbg(ls, sizedbg)
+        bcread_dbg(ls, firstline, numline, sizebc, sizeuv, sizedbg)
     end
 
     assert(len == startn - ls.n, "prototype bytecode size mismatch")
