@@ -567,7 +567,7 @@ Proto = {
     NOJIT  = 0x08; -- JIT disabled for this function.
     ILOOP  = 0x10; -- Patched bytecode with ILOOP etc.
 }
-function Proto.new(flags, outer)
+function Proto.new(flags, firstline, lastline, outer)
     local proto = setmetatable({
         flags  = flags or 0;
         outer  = outer;
@@ -583,10 +583,10 @@ function Proto.new(flags, outer)
         kcache = {};
         varinfo = {};
         freereg   = 0;
-        currline  = 1;
-        lastline  = 1;
-        firstline = 1;
-        numlines  = 0;
+        firstline = firstline;
+        lastline  = lastline;
+        currline  = firstline;
+        numlines  = lastline - firstline;
         framesize = 0;
         explret = false;
     }, Proto)
@@ -633,13 +633,9 @@ function Proto.__index:leave()
     self.scope = self.scope.outer
     self.freereg = freereg
 end
-function Proto.__index:set_line(firstline, lastline)
-    self.firstline = firstline
-    self.numlines = lastline - firstline
-end
-function Proto.__index:child(flags)
+function Proto.__index:child(firstline, lastline)
     self.flags = bor(self.flags, Proto.CHILD)
-    local child = Proto.new(flags, self)
+    local child = Proto.new(0, firstline, lastline, self)
     child.idx = #self.kobj
     self.kobj[child] = #self.kobj
     self.kobj[#self.kobj + 1] = child
@@ -801,6 +797,7 @@ function Proto.__index:write_debug(buf)
         buf:put_uleb128(endpc - startpc)
         lastpc = startpc
     end
+    buf:put(0)
 end
 function Proto.__index:newvar(name, dest)
     dest = dest or self:nextreg()
@@ -1245,7 +1242,7 @@ Dump = {
 Dump.__index = {}
 function Dump.new(main, name)
     local self =  setmetatable({
-        main  = main or Proto.new(Proto.VARARG);
+        main  = main;
         name  = name;
         flags = band(main.flags, Dump.FFI);
     }, Dump)

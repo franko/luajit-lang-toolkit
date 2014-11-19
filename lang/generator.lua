@@ -340,7 +340,7 @@ end
 
 function ExpressionRule:FunctionExpression(node, dest)
     local free = self.ctx.freereg
-    local child = self.ctx:child()
+    local child = self.ctx:child(node.firstline, node.lastline)
     self.ctx = child
     for i=1, #node.params do
         if node.params[i].kind == 'Vararg' then
@@ -351,7 +351,6 @@ function ExpressionRule:FunctionExpression(node, dest)
     end
     self:block_emit(node.body)
     self:close_proto()
-    self.ctx:set_line(node.firstline, node.lastline)
 
     self.ctx = self.ctx:parent()
     self.ctx.freereg = free
@@ -799,7 +798,7 @@ end
 
 local function generate(tree, name)
     local self = { line = 0 }
-    self.main = bc.Proto.new(bc.Proto.VARARG)
+    self.main = bc.Proto.new(bc.Proto.VARARG, tree.firstline, tree.lastline)
     self.ctx = self.main
     self.chunkname = tree.chunkname
 
@@ -1042,7 +1041,6 @@ local function generate(tree, name)
     end
 
     self:emit(tree)
-    self.ctx:set_line(tree.firstline, tree.lastline)
 
     local dump = bc.Dump.new(self.main, name)
     return dump:pack()
