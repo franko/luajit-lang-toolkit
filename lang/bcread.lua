@@ -224,8 +224,7 @@ end
 
 local function byte(ls, p)
     p = p or ls.p
-    local c = strsub(ls.data, p, p)
-    return strbyte(c)
+    return strbyte(ls.data, p, p)
 end
 
 local function bcread_need(ls, len)
@@ -254,6 +253,13 @@ local function bcread_byte(ls)
     local b = bcread_dec(ls)
     ls.p = ls.p + 1
     return b
+end
+
+local function bcread_uint32(ls)
+    local a, b, c, d = strbyte(ls.data, ls.p, ls.p + 3)
+    bcread_consume(ls, 4)
+    ls.p = ls.p + 4
+    return bor(shl(d, 24), shl(c, 16), shl(b, 8), a)
 end
 
 local function bcread_uleb128(ls)
@@ -304,11 +310,8 @@ elseif c == "\r" then return "\\r"
 end
 
 local function bcread_ins(ls)
-    local op = bcread_byte(ls)
-    local a = bcread_byte(ls)
-    local b = bcread_byte(ls)
-    local c = bcread_byte(ls)
-    local ins = bor(op, shl(a, 8), shl(b, 16), shl(c, 24))
+    local ins = bcread_uint32(ls)
+    local op = band(ins, 0xff)
     return ins, BCMODE[op]
 end
 
