@@ -690,7 +690,6 @@ function Proto.__index:line(ln)
     self.currline = ln
 end
 function Proto.__index:emit(op, a, b, c)
-    --print(("Ins:%s %s %s %s"):format(BC[op], a, b, c))
     local ins = Ins.new(op, a, b, c)
     self.code[#self.code + 1] = ins
     self.lninfo[#self.lninfo + 1] = self.currline
