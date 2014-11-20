@@ -331,10 +331,15 @@ end
 
 function StatementRule:FunctionDeclaration(node)
     local path = node.id
+    local lhs
     if node.locald then
-        self.ctx:newvar(path.name)
+        local vinfo = self.ctx:newvar(path.name)
+        -- We avoid calling "lhs_expr_emit" on "path" because
+        -- it would mark the variable as mutable.
+        lhs = {tag = 'local', target = vinfo.idx}
+    else
+        lhs = self:lhs_expr_emit(path)
     end
-    local lhs = self:lhs_expr_emit(path)
     self:expr_tolhs(lhs, node)
 end
 
