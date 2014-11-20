@@ -965,8 +965,10 @@ local function generate(tree, name)
         elseif (want > 0 or want == MULTIRES) then
             local dest = self.ctx.freereg
             self:expr_toreg(node, dest, dest + 1)
+            self.ctx:maxframe(dest + 1)
             if want > 1 then
                 self.ctx:op_nils(dest + 1, want - 1)
+                self.ctx:maxframe(dest + want)
             end
             return false, false
         end

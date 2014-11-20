@@ -610,6 +610,12 @@ function Proto.__index:setreg(reg)
         self.framesize = self.freereg
     end
 end
+function Proto.__index:maxframe(reg)
+    if reg > self.framesize then
+        self.framesize = reg
+    end
+end
+
 function Proto.__index:enter()
     local outer = self.scope
     self.scope = {
