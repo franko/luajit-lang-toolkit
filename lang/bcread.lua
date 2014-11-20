@@ -512,15 +512,20 @@ local function bcread_uvinfo(ls, sizeuv)
     end
 end
 
+local VARNAME = {
+  "(for index)", "(for limit)", "(for step)", "(for generator)",
+  "(for state)", "(for control)"
+}
+
 local function bcread_varinfo(ls)
-    local VARNAME__MAX = 7
     local lastpc = 0
     while true do
         local vn = byte(ls)
-        local name = "(special var name)"
-        if vn < VARNAME__MAX then
+        local name
+        if vn < #VARNAME + 1 then
             bcread_byte(ls)
             if vn == 0 then break end
+            name = VARNAME[vn]
         else
             name = bcread_string(ls)
         end
