@@ -1253,11 +1253,8 @@ function Dump.__index:write_header(buf)
     buf:put(Dump.HEAD_3)
     buf:put(Dump.VERS)
     buf:put(self.flags)
-    local name = string.gsub(self.name, "[^/\\]+[/\\]", "")
+    local name = self.name and "@" .. self.name or "(binary)"
     if band(self.flags, Dump.STRIP) == 0 then
-        if not name then
-            name = '(binary)'
-        end
         buf:put_uleb128(#name)
         buf:put_bytes(name)
     end
