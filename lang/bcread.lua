@@ -21,6 +21,7 @@ local BCDUMP = {
 BCDUMP.F_KNOWN = BCDUMP.F_FFI*2-1
 
 local BCDUMP_KGC_CHILD, BCDUMP_KGC_TAB, BCDUMP_KGC_I64, BCDUMP_KGC_U64, BCDUMP_KGC_COMPLEX, BCDUMP_KGC_STR = 0, 1, 2, 3, 4, 5
+local BCDUMP_KTAB_NIL, BCDUMP_KTAB_FALSE, BCDUMP_KTAB_TRUE, BCDUMP_KTAB_INT, BCDUMP_KTAB_NUM, BCDUMP_KTAB_STR = 0, 1, 2, 3, 4, 5
 
 local BCM_REF = {
     'none', 'dst', 'base', 'var', 'rbase', 'uv',  -- Mode A must be <= 7
@@ -439,8 +440,38 @@ local function dword_new_u32(cdata_new, lo, hi)
     return value[0]
 end
 
+local function bcread_ktabk(ls)
+    local tp = bcread_uleb128(ls)
+    if tp >= BCDUMP_KTAB_STR then
+        local len = tp - BCDUMP_KTAB_STR
+        local str = bcread_mem(ls, len)
+        printer:write(ls, "ktab str: %q", str)
+    elseif tp == BCDUMP_KTAB_INT then
+        local n = bcread_uleb128(ls)
+        printer:write(ls, "ktab int: %d", n)
+    elseif tp == BCDUMP_KTAB_NUM then
+        local lo = bcread_uleb128(ls)
+        local hi = bcread_uleb128(ls)
+        printer:write(ls, "ktab num: %g", dword_new_u32(double_new, lo, hi))
+    else
+        assert(tp <= BCDUMP_KTAB_TRUE)
+        local pris = {"nil", "false", "true"}
+        printer:write(ls, "ktab pri %s", pris[tp])
+    end
+end
+
 local function bcread_ktab(ls)
-    error("NYI")
+    local narray = bcread_uleb128(ls)
+    local nhash = bcread_uleb128(ls)
+    printer:write(ls, "ktab array: %d", narray)
+    for i = 1, narray do
+        bcread_ktabk(ls)
+    end
+    printer:write(ls, "ktab hash: %d", nhash)
+    for i = 1, nhash do
+       bcread_ktabk(ls)
+       bcread_ktabk(ls)
+    end
 end
 
 local function bcread_kgc(ls, sizekgc)
