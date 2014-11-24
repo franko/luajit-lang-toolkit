@@ -351,7 +351,7 @@ local function bcread_ins(ls)
 end
 
 -- Return one bytecode line.
-local function bcline(ls, pc, prefix)
+local function bcline(ls, proto, pc, prefix)
     local ins, m = bcread_ins(ls)
     if not ins then return end
     local ma, mb, mc = band(m, 7), band(m, 15*8), band(m, 15*128)
@@ -369,17 +369,19 @@ local function bcline(ls, pc, prefix)
     end
     local kc
     if mc == 10*128 then -- BCMstr
-        kc = format("<kgc string: %d>", d)
+        local kgc = proto.kgc
+        kc = kgc[#kgc - d]
+        kc = format(#kc > 40 and '"%.40s"~' or '"%s"', gsub(kc, "%c", ctlsub))
     elseif mc == 9*128 then -- BCMnum
-        kc = format("<knum: %d>", d)
+        kc = proto.knum[d+1]
         if op == "TSETM " then kc = kc - 2^52 end
     elseif mc == 12*128 then -- BCMfunc
         kc = format("<function: %d>", d)
     elseif mc == 5*128 then -- BCMuv
-        kc = format("<uv: %d>", d)
+        kc = proto.uvinfo[d+1]
     end
     if ma == 5 then -- BCMuv
-        local ka = format("<uv: %d>", a)
+        local ka = proto.uvinfo[a+1]
         if kc then kc = ka.." ; "..kc else kc = ka end
     end
     if mb ~= 0 then
@@ -402,7 +404,7 @@ end
 local function bcread_bytecode(ls, target, sizebc)
     target:enter_bytecode(ls)
     for pc = 1, sizebc - 1 do
-        local ins = bcline(ls, pc)
+        local ins = bcline(ls, target.proto, pc)
         target:ins(ls, ins)
     end
 end
@@ -470,6 +472,7 @@ local function bcread_ktab(ls, target)
        bcread_ktabk(ls, target)
        bcread_ktabk(ls, target)
     end
+    return 0
 end
 
 local function bcread_kgc(ls, target, sizekgc)
@@ -481,7 +484,8 @@ local function bcread_kgc(ls, target, sizekgc)
             local str = bcread_mem(ls, len)
             target:kgc(ls, i, str)
         elseif tp == BCDUMP_KGC_TAB then
-            bcread_ktab(ls, target)
+            local value = bcread_ktab(ls, target)
+            target:kgc(ls, i, value)
         elseif tp ~= BCDUMP_KGC_CHILD then
             local lo0, hi0 = bcread_uleb128(ls), bcread_uleb128(ls)
             if tp == BCDUMP_KGC_COMPLEX then
@@ -537,7 +541,7 @@ end
 local function bcread_uvinfo(ls, target, sizeuv)
     for i = 1, sizeuv do
         local name = bcread_string(ls)
-        target:uvinfo(ls, i - 1, name)
+        target:uvinfo(ls, i, name)
     end
 end
 
@@ -731,11 +735,11 @@ end
 function printer:proto_info_target()
     local proto = self.proto
     local function nop() end
-    local function knum(_, ls, i, value)
-        proto.knum[i] = num
+    local function knum(_, ls, i, tag, value)
+        proto.knum[i] = value
     end
     local function kgc(_, ls, i, value)
-        proto.kgc[i] = num
+        proto.kgc[i] = value
     end
     local function uv(_, ls, i, value)
         proto.uv[i] = value
