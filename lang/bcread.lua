@@ -376,7 +376,8 @@ local function bcline(ls, proto, pc, prefix)
         kc = proto.knum[d+1]
         if op == "TSETM " then kc = kc - 2^52 end
     elseif mc == 12*128 then -- BCMfunc
-        kc = format("<function: %d>", d)
+        local f = proto.kgc[#proto.kgc - d]
+        kc = format("%s:%d", f.filename, f.firstline)
     elseif mc == 5*128 then -- BCMuv
         kc = proto.uvinfo[d+1]
     end
@@ -472,7 +473,7 @@ local function bcread_ktab(ls, target)
        bcread_ktabk(ls, target)
        bcread_ktabk(ls, target)
     end
-    return 0
+    return -1
 end
 
 local function bcread_kgc(ls, target, sizekgc)
@@ -580,13 +581,13 @@ local function bcread_proto(ls, target)
     if ls.n > 0 and byte(ls) == 0 then
         bcread_byte(ls)
         target:eof(ls)
-        return false
+        return nil
     end
     target:enter_proto(ls)
     local len = bcread_uleb128(ls)
     local startn = ls.n
     target:proto_len(ls, len)
-    if len == 0 then return false end
+    if len == 0 then return nil end
     bcread_need(ls, len)
 
     -- Read prototype header.
@@ -608,8 +609,8 @@ local function bcread_proto(ls, target)
         target:proto_debug_size(ls, sizedbg)
         if sizedbg > 0 then
             firstline = bcread_uleb128(ls)
-            numline = bcread_uleb128(ls)
-            target:proto_lines(ls, firstline, numline)
+            numlines = bcread_uleb128(ls)
+            target:proto_lines(ls, firstline, numlines)
         end
     end
 
@@ -635,7 +636,7 @@ local function bcread_proto(ls, target)
     end
 
     assert(len == startn - ls.n, "prototype bytecode size mismatch")
-    return true
+    return target.proto
 end
 
 local function bcread_header(ls, target)
@@ -659,6 +660,17 @@ end
 
 local printer = {}
 
+function printer:chunkname(ls, chunkname)
+    self.chunkname = chunkname
+    log(ls, format("Chunkname: %s", chunkname))
+end
+
+local function chunkname_strip(s)
+    s = string.gsub(s, "^@", "")
+    s = string.gsub(s, ".+/", "")
+    return s
+end
+
 function printer:enter_proto(ls)
     self.proto = {
         kgc = {},
@@ -667,13 +679,13 @@ function printer:enter_proto(ls)
         lineinfo = {},
         uvinfo = {},
         varinfo = {},
+        filename = chunkname_strip(self.chunkname)
     }
     log(ls, ".. prototype ..")
 end
 
 function printer:header(ls) log(ls, "Header LuaJIT 2.0 BC") end
 function printer:flags(ls, flags) log(ls, format("Flags: %s", flags_string(flags))) end
-function printer:chunkname(ls, chunkname) log(ls, format("Chunkname: %s", chunkname)) end
 function printer:enter_kgc(ls) log(ls, ".. kgc ..") end
 function printer:enter_knum(ls) log(ls, ".. knum ..") end
 function printer:enter_bytecode(ls) log(ls, ".. bytecode ..") end
@@ -686,7 +698,12 @@ function printer:proto_numparams(ls, numparams) log(ls, "parameters number %d", 
 function printer:proto_framesize(ls, framesize) log(ls, "framesize %d", framesize) end
 function printer:proto_sizes(ls, sizeuv, sizekgc, sizekn, sizebc) log(ls, "size uv: %d kgc: %d kn: %d bc: %d", sizeuv, sizekgc, sizekn, sizebc) end
 function printer:proto_debug_size(ls, sizedbg) log(ls, "debug size %d", sizedbg) end
-function printer:proto_lines(ls, firstline, numline) log(ls, "firstline: %d numline: %d", firstline, numline) end
+
+function printer:proto_lines(ls, firstline, numlines)
+    self.proto.firstline = firstline
+    self.proto.numlines = numlines
+    log(ls, "firstline: %d numline: %d", firstline, numlines)
+end
 
 function printer:ins(ls, ins)
     log(ls, "%s", ins)
@@ -697,7 +714,15 @@ function printer:knum(ls, i, tag, num)
 end
 
 function printer:kgc(ls, i, value)
-    local str = type(value) == "string" and format("%q", value) or tostring(value)
+    local str
+    if type(value) == "string" then
+        str = format("%q", value)
+    elseif value == 0 then
+        local pt = self.proto.kgc[i]
+        str = format("<function: %s:%d>", pt.filename, pt.firstline)
+    else
+        str = tostring(value)
+    end
     log(ls, "kgc: %s", str)
 end
 
@@ -734,11 +759,20 @@ end
 
 function printer:proto_info_target()
     local proto = self.proto
+    local function last_proto()
+        local n = #self.childs
+        local pt = self.childs[n]
+        self.childs[n] = nil
+        return pt
+    end
     local function nop() end
     local function knum(_, ls, i, tag, value)
         proto.knum[i] = value
     end
-    local function kgc(_, ls, i, value)
+    local function kgc(self, ls, i, value)
+        if value == 0 then
+            value = last_proto()
+        end
         proto.kgc[i] = value
     end
     local function uv(_, ls, i, value)
@@ -764,13 +798,15 @@ end
 local function bcread(s)
     local ls = {data = s, n = #s, p = 1, bytes = {}}
     local err
+    printer.childs = {}
     if bcread_byte(ls) ~= BCDUMP.HEAD1 then
         return "invalid header beginning char"
     end
     bcread_header(ls, printer)
     repeat
-        local found = bcread_proto(ls, printer)
-    until not found
+        local pt = bcread_proto(ls, printer)
+        printer.childs[#printer.childs + 1] = pt
+    until not pt
     if ls.n > 0 then
         error("spurious bytecode")
     end
