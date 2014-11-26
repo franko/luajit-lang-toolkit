@@ -671,9 +671,9 @@ end
 -- prototype's informations. The required informations includes kgc, knum, uv,
 -- debug name and line numbers.
 
-local printer = {}
+local Printer = {}
 
-function printer:chunkname(ls, chunkname)
+function Printer:chunkname(ls, chunkname)
     self.chunkname = chunkname
     log(ls, format("Chunkname: %s", chunkname))
 end
@@ -684,7 +684,7 @@ local function chunkname_strip(s)
     return s
 end
 
-function printer:enter_proto(ls)
+function Printer:enter_proto(ls)
     self.proto = {
         kgc = {},
         knum = {},
@@ -697,37 +697,37 @@ function printer:enter_proto(ls)
     log(ls, ".. prototype ..")
 end
 
-function printer:header(ls) log(ls, "Header LuaJIT 2.0 BC") end
-function printer:flags(ls, flags) log(ls, format("Flags: %s", flags_string(flags))) end
-function printer:enter_kgc(ls) log(ls, ".. kgc ..") end
-function printer:enter_knum(ls) log(ls, ".. knum ..") end
-function printer:enter_bytecode(ls) log(ls, ".. bytecode ..") end
-function printer:enter_uv(ls) log(ls, ".. uv ..") end
-function printer:enter_debug(ls) log(ls, ".. debug ..") end
-function printer:eof(ls) log(ls, "eof") end
-function printer:proto_flags(ls, flags) log(ls, "prototype flags %s", proto_flags_string(flags)) end
-function printer:proto_len(ls, len) log(ls, "prototype length %d", len) end
-function printer:proto_numparams(ls, numparams) log(ls, "parameters number %d", numparams) end
-function printer:proto_framesize(ls, framesize) log(ls, "framesize %d", framesize) end
-function printer:proto_sizes(ls, sizeuv, sizekgc, sizekn, sizebc) log(ls, "size uv: %d kgc: %d kn: %d bc: %d", sizeuv, sizekgc, sizekn, sizebc) end
-function printer:proto_debug_size(ls, sizedbg) log(ls, "debug size %d", sizedbg) end
+function Printer:header(ls) log(ls, "Header LuaJIT 2.0 BC") end
+function Printer:flags(ls, flags) log(ls, format("Flags: %s", flags_string(flags))) end
+function Printer:enter_kgc(ls) log(ls, ".. kgc ..") end
+function Printer:enter_knum(ls) log(ls, ".. knum ..") end
+function Printer:enter_bytecode(ls) log(ls, ".. bytecode ..") end
+function Printer:enter_uv(ls) log(ls, ".. uv ..") end
+function Printer:enter_debug(ls) log(ls, ".. debug ..") end
+function Printer:eof(ls) log(ls, "eof") end
+function Printer:proto_flags(ls, flags) log(ls, "prototype flags %s", proto_flags_string(flags)) end
+function Printer:proto_len(ls, len) log(ls, "prototype length %d", len) end
+function Printer:proto_numparams(ls, numparams) log(ls, "parameters number %d", numparams) end
+function Printer:proto_framesize(ls, framesize) log(ls, "framesize %d", framesize) end
+function Printer:proto_sizes(ls, sizeuv, sizekgc, sizekn, sizebc) log(ls, "size uv: %d kgc: %d kn: %d bc: %d", sizeuv, sizekgc, sizekn, sizebc) end
+function Printer:proto_debug_size(ls, sizedbg) log(ls, "debug size %d", sizedbg) end
 
-function printer:proto_lines(ls, firstline, numlines)
+function Printer:proto_lines(ls, firstline, numlines)
     self.proto.firstline = firstline
     self.proto.numlines = numlines
     log(ls, "firstline: %d numline: %d", firstline, numlines)
 end
 
-function printer:ins(ls, pc, ins, m)
+function Printer:ins(ls, pc, ins, m)
     local s = bcline(self.proto, pc, ins, m, self.proto.target[pc] and "=>")
     log(ls, "%s", s)
 end
 
-function printer:knum(ls, i, tag, num)
+function Printer:knum(ls, i, tag, num)
     log(ls, "knum %s: %g", tag, num)
 end
 
-function printer:kgc(ls, i, value)
+function Printer:kgc(ls, i, value)
     local str
     if type(value) == "string" then
         str = format("%q", value)
@@ -740,17 +740,17 @@ function printer:kgc(ls, i, value)
     log(ls, "kgc: %s", str)
 end
 
-function printer:ktab_dim(ls, narray, nhash)
+function Printer:ktab_dim(ls, narray, nhash)
     log(ls, "ktab narray: %d nhash: %d", narray, nhash)
 end
 
-function printer:ktabk(ls, tag, value)
+function Printer:ktabk(ls, tag, value)
     local ps = {"nil", "false", "true"}
     local s = tag == "string" and format("%q", value) or (tag == "pri" and ps[value] or tostring(value))
     log(ls, "ktabk %s: %s", tag, s)
 end
 
-function printer:uv(ls, i, value)
+function Printer:uv(ls, i, value)
     local uv, islocal, imm = uv_decode(value)
     if islocal then
         log(ls, "upvalue %slocal %d", imm and "(const) " or "", uv)
@@ -759,15 +759,15 @@ function printer:uv(ls, i, value)
     end
 end
 
-function printer:lineinfo(ls, pc, line)
+function Printer:lineinfo(ls, pc, line)
     log(ls, "pc%03d: line %d", pc, line)
 end
 
-function printer:uvinfo(ls, i, name)
+function Printer:uvinfo(ls, i, name)
     log(ls, "uv%d: name: %s", i - 1, name)
 end
 
-function printer:varinfo(ls, name, startpc, endpc)
+function Printer:varinfo(ls, name, startpc, endpc)
     log(ls, "var: %s pc: %d - %d", name, startpc, endpc)
 end
 
@@ -776,7 +776,7 @@ end
 -- informations about kgc, knum, uv, jump targets etc.
 -- The informations are stored in the "proto" object and used by the "printer"
 -- object in the second pass.
-function printer:proto_info_target()
+function Printer:proto_info_target()
     local proto = self.proto
     local function last_proto()
         local n = #self.childs
@@ -821,17 +821,26 @@ function printer:proto_info_target()
     }
 end
 
+function Printer:add_child(pt)
+    self.childs[#self.childs + 1] = pt
+end
+
+local function printer_new()
+    local p = { childs = {} }
+    return setmetatable(p, { __index = Printer })
+end
+
 local function bcread(s)
     local ls = {data = s, n = #s, p = 1, bytes = {}}
     local err
-    printer.childs = {}
+    local printer = printer_new()
     if bcread_byte(ls) ~= BCDUMP.HEAD1 then
         return "invalid header beginning char"
     end
     bcread_header(ls, printer)
     repeat
         local pt = bcread_proto(ls, printer)
-        printer.childs[#printer.childs + 1] = pt
+        printer:add_child(pt)
     until not pt
     if ls.n > 0 then
         error("spurious bytecode")
