@@ -258,12 +258,6 @@ local function bcread_dec(ls)
     return b
 end
 
-local function bcread_skip(ls, len)
-    assert(ls.n >= len, "incomplete bytecode data")
-    ls.n = ls.n - len
-    ls.p = ls.p + len
-end
-
 local function bcread_byte(ls)
     local b = bcread_dec(ls)
     ls.p = ls.p + 1
@@ -351,9 +345,7 @@ local function bcread_ins(ls)
 end
 
 -- Return one bytecode line.
-local function bcline(ls, proto, pc, prefix)
-    local ins, m = bcread_ins(ls)
-    if not ins then return end
+local function bcline(proto, pc, ins, m, prefix)
     local ma, mb, mc = band(m, 7), band(m, 15*8), band(m, 15*128)
     local a = band(shr(ins, 8), 0xff)
     local op = BC[band(ins, 0xff)]
@@ -405,8 +397,8 @@ end
 local function bcread_bytecode(ls, target, sizebc)
     target:enter_bytecode(ls)
     for pc = 1, sizebc - 1 do
-        local ins = bcline(ls, target.proto, pc)
-        target:ins(ls, ins)
+        local ins, m = bcread_ins(ls)
+        target:ins(ls, pc, ins, m)
     end
 end
 
@@ -617,7 +609,7 @@ local function bcread_proto(ls, target)
     local info = target:proto_info_target()
     if info then
         local save = save_position(ls)
-        bcread_skip(ls, 4 * (sizebc - 1))
+        bcread_bytecode(ls, info, sizebc)
         bcread_uv(ls, info, sizeuv)
         bcread_kgc(ls, info, sizekgc)
         bcread_knum(ls, info, sizekn)
@@ -705,8 +697,9 @@ function printer:proto_lines(ls, firstline, numlines)
     log(ls, "firstline: %d numline: %d", firstline, numlines)
 end
 
-function printer:ins(ls, ins)
-    log(ls, "%s", ins)
+function printer:ins(ls, pc, ins, m)
+    local s = bcline(self.proto, pc, ins, m, self.proto.target[pc] and "=>")
+    log(ls, "%s", s)
 end
 
 function printer:knum(ls, i, tag, num)
@@ -787,9 +780,16 @@ function printer:proto_info_target()
     local function varinfo(_, ls, name, startpc, endpc)
         proto.varinfo[#proto.varinfo + 1] = {name, spartpc, endpc}
     end
+    local function enter_bytecode()
+        proto.target = {}
+    end
+    local function ins(_, ls, pc, ins, m)
+        if band(m, 15*128) == 13*128 then proto.target[pc+shr(ins, 16)-0x7fff] = true end
+    end
     return {
         knum = knum, kgc = kgc, uv = uv,
         lineinfo = lineinfo, uvinfo = uvinfo, varinfo = varinfo,
+        enter_bytecode = enter_bytecode, ins = ins,
         ktab_dim = nop, ktabk = nop,
         enter_uv = nop, enter_kgc = nop, enter_knum = nop, enter_debug = nop,
     }
