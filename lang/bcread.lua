@@ -1,3 +1,15 @@
+--
+-- LuaJIT Language Toolkit.
+--
+-- Copyright (C) 2013-2014 Francesco Abbate. All rights reserved.
+--
+-- Major portions taken verbatim or adapted from
+-- LuaJIT -- a Just-In-Time Compiler for Lua. http://luajit.org/
+-- Copyright (C) 2005-2014 Mike Pall. All rights reserved.
+--
+-- See Copyright Notice in LICENSE
+--
+
 local ffi = require("ffi")
 
 local band, bor, shl, shr, bnot = bit.band, bit.bor, bit.lshift, bit.rshift, bit.bnot
