@@ -650,6 +650,15 @@ local function bcread_header(ls, target)
     end
 end
 
+-- The "printer" object is used to pretty-print on the screen the bytecode's
+-- hex dump side by side with the decoded meaning of each chunk of bytes.
+-- The routines bcread_* reads the bytecode and calls an appropriate "printer"
+-- method with the decoded informations. In turns the "printer" method write on
+-- the screen the bytes and the informations.
+-- The "printer" object assume that a "proto" field is available with some
+-- prototype's informations. The required informations includes kgc, knum, uv,
+-- debug name and line numbers.
+
 local printer = {}
 
 function printer:chunkname(ls, chunkname)
@@ -750,6 +759,11 @@ function printer:varinfo(ls, name, startpc, endpc)
     log(ls, "var: %s pc: %d - %d", name, startpc, endpc)
 end
 
+-- This function return an object used as target by bcread_* routines in the
+-- first pass of bytecode read. The role of this object is to acquire
+-- informations about kgc, knum, uv, jump targets etc.
+-- The informations are stored in the "proto" object and used by the "printer"
+-- object in the second pass.
 function printer:proto_info_target()
     local proto = self.proto
     local function last_proto()
