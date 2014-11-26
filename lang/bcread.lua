@@ -233,8 +233,13 @@ local function log(ls, fmt, ...)
     ls.bytes = {}
 end
 
+local function action(obj, method_name, ...)
+    local m = obj[method_name]
+    if m then m(obj, ...) end
+end
+
 local function save_position(ls)
-    assert(#ls.bytes == 0, "pending bytes before save position")
+    ls.bytes = {}
     return {p = ls.p, n = ls.n}
 end
 
@@ -407,10 +412,10 @@ local function flags_string(flags)
 end
 
 local function bcread_bytecode(ls, target, sizebc)
-    target:enter_bytecode(ls)
+    action(target, "enter_bytecode", ls)
     for pc = 1, sizebc - 1 do
         local ins, m = bcread_ins(ls)
-        target:ins(ls, pc, ins, m)
+        action(target, "ins", ls, pc, ins, m)
     end
 end
 
@@ -424,10 +429,10 @@ local function uv_decode(uv)
 end
 
 local function bcread_uv(ls, target, sizeuv)
-    target:enter_uv(ls)
+    action(target, "enter_uv", ls)
     for i = 1, sizeuv do
         local uv = bcread_uint16(ls)
-        target:uv(ls, i, uv)
+        action(target, "uv", ls, i, uv)
     end
 end
 
@@ -451,25 +456,25 @@ local function bcread_ktabk(ls, target)
     if tp >= BCDUMP_KTAB_STR then
         local len = tp - BCDUMP_KTAB_STR
         local str = bcread_mem(ls, len)
-        target:ktabk(ls, "string", str)
+        action(target, "ktabk", ls, "string", str)
     elseif tp == BCDUMP_KTAB_INT then
         local n = bcread_uleb128(ls)
-        target:ktabk(ls, "int", n)
+        action(target, "ktabk", ls, "int", n)
     elseif tp == BCDUMP_KTAB_NUM then
         local lo = bcread_uleb128(ls)
         local hi = bcread_uleb128(ls)
         local value = dword_new_u32(double_new, lo, hi)
-        target:ktabk(ls, "num", value)
+        action(target, "ktabk", ls, "num", value)
     else
         assert(tp <= BCDUMP_KTAB_TRUE)
-        target:ktabk(ls, "pri", tp)
+        action(target, "ktabk", ls, "pri", tp)
     end
 end
 
 local function bcread_ktab(ls, target)
     local narray = bcread_uleb128(ls)
     local nhash = bcread_uleb128(ls)
-    target:ktab_dim(ls, narray, nhash)
+    action(target, "ktab_dim", ls, narray, nhash)
     for i = 1, narray do
         bcread_ktabk(ls, target)
     end
@@ -481,45 +486,45 @@ local function bcread_ktab(ls, target)
 end
 
 local function bcread_kgc(ls, target, sizekgc)
-    target:enter_kgc(ls)
+    action(target, "enter_kgc", ls)
     for i = 1, sizekgc do
         local tp = bcread_uleb128(ls)
         if tp >= BCDUMP_KGC_STR then
             local len = tp - BCDUMP_KGC_STR
             local str = bcread_mem(ls, len)
-            target:kgc(ls, i, str)
+            action(target, "kgc", ls, i, str)
         elseif tp == BCDUMP_KGC_TAB then
             local value = bcread_ktab(ls, target)
-            target:kgc(ls, i, value)
+            action(target, "kgc", ls, i, value)
         elseif tp ~= BCDUMP_KGC_CHILD then
             local lo0, hi0 = bcread_uleb128(ls), bcread_uleb128(ls)
             if tp == BCDUMP_KGC_COMPLEX then
                 local lo1, hi1 = bcread_uleb128(ls), bcread_uleb128(ls)
                 local re = dword_new_u32(double_new, lo0, hi0)
                 local im = dword_new_u32(double_new, lo1, hi1)
-                target:kgc(ls, i, complex(re, im))
+                action(target, "kgc", ls, i, complex(re, im))
             else
                 local cdata_new = tp == BCDUMP_KGC_I64 and int64_new or uint64_new
                 local value = dword_new_u32(cdata_new, lo0, hi0)
-                target:kgc(ls, i, value)
+                action(target, "kgc", ls, i, value)
             end
         else
-            target:kgc(ls, i, 0)
+            action(target, "kgc", ls, i, 0)
         end
     end
 end
 
 local function bcread_knum(ls, target, sizekn)
-    target:enter_knum(ls)
+    action(target, "enter_knum", ls)
     for i = 1, sizekn do
         local isnumbit = band(byte(ls), 1)
         local lo = bcread_uleb128_33(ls)
         if isnumbit ~= 0 then
             local hi = bcread_uleb128(ls)
             local value = dword_new_u32(double_new, lo, hi)
-            target:knum(ls, i, "num", value)
+            action(target, "knum", ls, i, "num", value)
         else
-            target:knum(ls, i, "int", lo)
+            action(target, "knum", ls, i, "int", lo)
         end
     end
 end
@@ -528,17 +533,17 @@ local function bcread_lineinfo(ls, target, firstline, numline, sizebc, sizedbg)
     if numline < 256 then
         for pc = 1, sizebc - 1 do
             local line = bcread_byte(ls)
-            target:lineinfo(ls, pc, firstline + line)
+            action(target, "lineinfo", ls, pc, firstline + line)
         end
     elseif numline < 65536 then
         for pc = 1, sizebc - 1 do
             local line = bcread_uint16(ls)
-            target:lineinfo(ls, pc, firstline + line)
+            action(target, "lineinfo", ls, pc, firstline + line)
         end
     else
         for pc = 1, sizebc - 1 do
             local line = bcread_uint32(ls)
-            target:lineinfo(ls, pc, firstline + line)
+            action(target, "lineinfo", ls, pc, firstline + line)
         end
     end
 end
@@ -546,7 +551,7 @@ end
 local function bcread_uvinfo(ls, target, sizeuv)
     for i = 1, sizeuv do
         local name = bcread_string(ls)
-        target:uvinfo(ls, i, name)
+        action(target, "uvinfo", ls, i, name)
     end
 end
 
@@ -569,13 +574,13 @@ local function bcread_varinfo(ls, target)
         end
         local startpc = lastpc + bcread_uleb128(ls)
         local endpc = startpc + bcread_uleb128(ls)
-        target:varinfo(ls, name, startpc, endpc)
+        action(target, "varinfo", ls, name, startpc, endpc)
         lastpc = startpc
     end
 end
 
 local function bcread_dbg(ls, target, firstline, numline, sizebc, sizeuv, sizedbg)
-    target:enter_debug(ls)
+    action(target, "enter_debug", ls)
     bcread_lineinfo(ls, target, firstline, numline, sizebc, sizedbg)
     bcread_uvinfo(ls, target, sizeuv)
     bcread_varinfo(ls, target)
@@ -584,37 +589,37 @@ end
 local function bcread_proto(ls, target)
     if ls.n > 0 and byte(ls) == 0 then
         bcread_byte(ls)
-        target:eof(ls)
+        action(target, "eof", ls)
         return nil
     end
-    target:enter_proto(ls)
+    action(target, "enter_proto", ls)
     local len = bcread_uleb128(ls)
     local startn = ls.n
-    target:proto_len(ls, len)
+    action(target, "proto_len", ls, len)
     if len == 0 then return nil end
     bcread_need(ls, len)
 
     -- Read prototype header.
     local flags = bcread_byte(ls)
-    target:proto_flags(ls, flags)
+    action(target, "proto_flags", ls, flags)
     local numparams = bcread_byte(ls)
-    target:proto_numparams(ls, numparams)
+    action(target, "proto_numparams", ls, numparams)
     local framesize = bcread_byte(ls)
-    target:proto_framesize(ls, framesize)
+    action(target, "proto_framesize", ls, framesize)
     local sizeuv = bcread_byte(ls)
     local sizekgc = bcread_uleb128(ls)
     local sizekn = bcread_uleb128(ls)
     local sizebc = bcread_uleb128(ls) + 1
-    target:proto_sizes(ls, sizeuv, sizekgc, sizekn, sizebc)
+    action(target, "proto_sizes", ls, sizeuv, sizekgc, sizekn, sizebc)
 
     local sizedbg, firstline, numline = 0, 0, 0
     if band(ls.flags, BCDUMP.F_STRIP) == 0 then
         sizedbg = bcread_uleb128(ls)
-        target:proto_debug_size(ls, sizedbg)
+        action(target, "proto_debug_size", ls, sizedbg)
         if sizedbg > 0 then
             firstline = bcread_uleb128(ls)
             numlines = bcread_uleb128(ls)
-            target:proto_lines(ls, firstline, numlines)
+            action(target, "proto_lines", ls, firstline, numlines)
         end
     end
 
@@ -647,10 +652,10 @@ local function bcread_header(ls, target)
     if bcread_byte(ls) ~= BCDUMP.HEAD2 or bcread_byte(ls) ~= BCDUMP.HEAD3 or bcread_byte(ls) ~= BCDUMP.VERSION then
         error("invalid header")
     end
-    target:header(ls)
+    action(target, "header", ls)
     local flags = bcread_uleb128(ls)
     ls.flags = flags
-    target:flags(ls, flags)
+    action(target, "flags", ls, flags)
     if band(flags, bnot(BCDUMP.F_KNOWN)) ~= 0 then
         error("unknown flags")
     end
@@ -658,8 +663,67 @@ local function bcread_header(ls, target)
         local len = bcread_uleb128(ls)
         bcread_need(ls, len)
         local chunkname = bcread_mem(ls, len)
-        target:chunkname(ls, chunkname)
+        action(target, "chunkname", ls, chunkname)
     end
+end
+
+local function chunkname_strip(s)
+    s = gsub(s, "^@", "")
+    s = gsub(s, ".+/", "")
+    return s
+end
+
+local function proto_new(filename)
+    return {
+        kgc = {},
+        knum = {},
+        uv = {},
+        lineinfo = {},
+        uvinfo = {},
+        varinfo = {},
+        filename = filename,
+    }
+end
+
+-- This function return an object used as target by bcread_* routines in the
+-- first pass of bytecode read. The role of this object is to acquire
+-- informations about kgc, knum, uv, jump targets etc.
+-- The informations are stored in the "proto" object and used by the "printer"
+-- object in the second pass.
+local function proto_info_target(target)
+    local proto = target.proto
+    local function knum(_, ls, i, tag, value)
+        proto.knum[i] = value
+    end
+    local function kgc(_, ls, i, value)
+        if value == 0 then
+            value = table.remove(target.childs)
+        end
+        proto.kgc[i] = value
+    end
+    local function uv(_, ls, i, value)
+        proto.uv[i] = value
+    end
+    local function lineinfo(_, ls, pc, line)
+        proto.lineinfo[pc] = line
+    end
+    local function uvinfo(_, ls, i, name)
+        proto.uvinfo[i] = name
+    end
+    local function varinfo(_, ls, name, startpc, endpc)
+        proto.varinfo[#proto.varinfo + 1] = {name, spartpc, endpc}
+    end
+    local function enter_bytecode()
+        proto.target = {}
+    end
+    local function ins(_, ls, pc, ins, m)
+        if band(m, 15*128) == 13*128 then proto.target[pc+shr(ins, 16)-0x7fff] = true end
+    end
+    return {
+        knum = knum, kgc = kgc, uv = uv,
+        lineinfo = lineinfo, uvinfo = uvinfo, varinfo = varinfo,
+        enter_bytecode = enter_bytecode, ins = ins,
+    }
 end
 
 -- The "printer" object is used to pretty-print on the screen the bytecode's
@@ -671,29 +735,17 @@ end
 -- prototype's informations. The required informations includes kgc, knum, uv,
 -- debug name and line numbers.
 
-local Printer = {}
+local Printer = {
+    proto_info_target = proto_info_target
+}
 
 function Printer:chunkname(ls, chunkname)
     self.chunkname = chunkname
     log(ls, format("Chunkname: %s", chunkname))
 end
 
-local function chunkname_strip(s)
-    s = string.gsub(s, "^@", "")
-    s = string.gsub(s, ".+/", "")
-    return s
-end
-
 function Printer:enter_proto(ls)
-    self.proto = {
-        kgc = {},
-        knum = {},
-        uv = {},
-        lineinfo = {},
-        uvinfo = {},
-        varinfo = {},
-        filename = chunkname_strip(self.chunkname)
-    }
+    self.proto = proto_new(chunkname_strip(self.chunkname))
     log(ls, ".. prototype ..")
 end
 
@@ -771,76 +823,50 @@ function Printer:varinfo(ls, name, startpc, endpc)
     log(ls, "var: %s pc: %d - %d", name, startpc, endpc)
 end
 
--- This function return an object used as target by bcread_* routines in the
--- first pass of bytecode read. The role of this object is to acquire
--- informations about kgc, knum, uv, jump targets etc.
--- The informations are stored in the "proto" object and used by the "printer"
--- object in the second pass.
-function Printer:proto_info_target()
-    local proto = self.proto
-    local function last_proto()
-        local n = #self.childs
-        local pt = self.childs[n]
-        self.childs[n] = nil
-        return pt
-    end
-    local function nop() end
-    local function knum(_, ls, i, tag, value)
-        proto.knum[i] = value
-    end
-    local function kgc(self, ls, i, value)
-        if value == 0 then
-            value = last_proto()
-        end
-        proto.kgc[i] = value
-    end
-    local function uv(_, ls, i, value)
-        proto.uv[i] = value
-    end
-    local function lineinfo(_, ls, pc, line)
-        proto.lineinfo[pc] = line
-    end
-    local function uvinfo(_, ls, i, name)
-        proto.uvinfo[i] = name
-    end
-    local function varinfo(_, ls, name, startpc, endpc)
-        proto.varinfo[#proto.varinfo + 1] = {name, spartpc, endpc}
-    end
-    local function enter_bytecode()
-        proto.target = {}
-    end
-    local function ins(_, ls, pc, ins, m)
-        if band(m, 15*128) == 13*128 then proto.target[pc+shr(ins, 16)-0x7fff] = true end
-    end
-    return {
-        knum = knum, kgc = kgc, uv = uv,
-        lineinfo = lineinfo, uvinfo = uvinfo, varinfo = varinfo,
-        enter_bytecode = enter_bytecode, ins = ins,
-        ktab_dim = nop, ktabk = nop,
-        enter_uv = nop, enter_kgc = nop, enter_knum = nop, enter_debug = nop,
-    }
+local BCList = {
+    proto_info_target = proto_info_target
+}
+
+function BCList:chunkname(ls, chunkname)
+    self.chunkname = chunkname
 end
 
-function Printer:add_child(pt)
-    self.childs[#self.childs + 1] = pt
+function BCList:enter_proto(ls)
+    self.proto = proto_new(chunkname_strip(self.chunkname))
 end
 
-local function printer_new()
+function BCList:enter_bytecode()
+    local pt = self.proto
+    print(format("-- BYTECODE -- %s:%d-%d", pt.filename, pt.firstline, pt.firstline + pt.numlines))
+end
+
+function BCList:proto_lines(ls, firstline, numlines)
+    self.proto.firstline = firstline
+    self.proto.numlines = numlines
+end
+
+function BCList:ins(ls, pc, ins, m)
+    local s = bcline(self.proto, pc, ins, m, self.proto.target[pc] and "=>")
+    print(s)
+end
+
+function BCList:enter_uv() print() end
+
+local function printer_new(class)
     local p = { childs = {} }
-    return setmetatable(p, { __index = Printer })
+    return setmetatable(p, { __index = class })
 end
 
-local function bcread(s)
+local function bcread(s, mode)
     local ls = {data = s, n = #s, p = 1, bytes = {}}
-    local err
-    local printer = printer_new()
+    local printer = printer_new(mode == "list" and BCList or Printer)
     if bcread_byte(ls) ~= BCDUMP.HEAD1 then
         return "invalid header beginning char"
     end
     bcread_header(ls, printer)
     repeat
         local pt = bcread_proto(ls, printer)
-        printer:add_child(pt)
+        printer.childs[#printer.childs + 1] = pt
     until not pt
     if ls.n > 0 then
         error("spurious bytecode")
