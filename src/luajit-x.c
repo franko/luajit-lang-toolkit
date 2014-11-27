@@ -60,6 +60,8 @@ static void print_usage(void)
   "Available options are:\n"
   "  -e chunk  Execute string " LUA_QL("chunk") ".\n"
   "  -l name   Require library " LUA_QL("name") ".\n"
+  "  -b ...    Save or list bytecode.\n"
+  "  -j cmd    Perform LuaJIT control command.\n"
   "  -i        Enter interactive mode after executing " LUA_QL("script") ".\n"
   "  -v        Show version information.\n"
   "  --        Stop handling options.\n"
@@ -280,10 +282,10 @@ static int handle_script(lua_State *L, char **argv, int n)
 }
 
 /* Load add-on module. */
-static int loadjitmodule(lua_State *L)
+static int loadlangmodule(lua_State *L)
 {
   lua_getglobal(L, "require");
-  lua_pushliteral(L, "jit.");
+  lua_pushliteral(L, "lang.");
   lua_pushvalue(L, -3);
   lua_concat(L, 2);
   if (lua_pcall(L, 1, 1, 0)) {
@@ -296,7 +298,7 @@ static int loadjitmodule(lua_State *L)
   if (lua_isnil(L, -1)) {
   nomodule:
     l_message(progname,
-        "unknown luaJIT command or jit.* modules not installed");
+        "unknown language toolkit command or lang.* modules not installed");
     return 1;
   }
   lua_remove(L, -2);  /* Drop module table. */
@@ -308,7 +310,7 @@ static int dobytecode(lua_State *L, char **argv)
 {
   int narg = 0;
   lua_pushliteral(L, "bcsave");
-  if (loadjitmodule(L))
+  if (loadlangmodule(L))
     return 1;
   if (argv[0][2]) {
     narg++;
@@ -316,17 +318,7 @@ static int dobytecode(lua_State *L, char **argv)
     lua_pushstring(L, argv[0]+1);
   }
   for (argv++; *argv != NULL; narg++, argv++) {
-    size_t len = strlen(*argv);
-    if (len > 4 && strcmp((*argv) + len - 4, ".lua") == 0) {
-      /* Load the compiled function on the stack so that it will be passed to
-         the bcsave.start function. The LuaJIT code pass only the filename but
-         bcsave.start accepts either functions or filenames. */
-      if (language_loadfile(L, *argv) != 0) {
-        return 1;
-      }
-    } else {
-      lua_pushstring(L, *argv);
-    }
+    lua_pushstring(L, *argv);
   }
   return report(L, lua_pcall(L, narg, 0, 0));
 }
