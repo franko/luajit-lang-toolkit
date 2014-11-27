@@ -219,14 +219,14 @@ local function text_fragment(text, n)
     return #s, s
 end
 
-local function log(ls, fmt, ...)
+local function log(out, ls, fmt, ...)
     local n = 1
     local bcount, tlen = 0, 0
     local text = format(fmt, ...)
     repeat
         local alen, a = bytes_row(ls.bytes, n)
         local blen, b = text_fragment(text, n)
-        print(format("%-24s| %s", a, b))
+        out:write(format("%-24s| %s\n", a, b))
         bcount, tlen = bcount + alen, tlen + blen
         n = n + 1
     until bcount >= #ls.bytes and tlen >= #text
@@ -741,42 +741,42 @@ local Printer = {
 
 function Printer:chunkname(ls, chunkname)
     self.chunkname = chunkname
-    log(ls, format("Chunkname: %s", chunkname))
+    log(self.out, ls, format("Chunkname: %s", chunkname))
 end
 
 function Printer:enter_proto(ls)
     self.proto = proto_new(chunkname_strip(self.chunkname))
-    log(ls, ".. prototype ..")
+    log(self.out, ls, ".. prototype ..")
 end
 
-function Printer:header(ls) log(ls, "Header LuaJIT 2.0 BC") end
-function Printer:flags(ls, flags) log(ls, format("Flags: %s", flags_string(flags))) end
-function Printer:enter_kgc(ls) log(ls, ".. kgc ..") end
-function Printer:enter_knum(ls) log(ls, ".. knum ..") end
-function Printer:enter_bytecode(ls) log(ls, ".. bytecode ..") end
-function Printer:enter_uv(ls) log(ls, ".. uv ..") end
-function Printer:enter_debug(ls) log(ls, ".. debug ..") end
-function Printer:eof(ls) log(ls, "eof") end
-function Printer:proto_flags(ls, flags) log(ls, "prototype flags %s", proto_flags_string(flags)) end
-function Printer:proto_len(ls, len) log(ls, "prototype length %d", len) end
-function Printer:proto_numparams(ls, numparams) log(ls, "parameters number %d", numparams) end
-function Printer:proto_framesize(ls, framesize) log(ls, "framesize %d", framesize) end
-function Printer:proto_sizes(ls, sizeuv, sizekgc, sizekn, sizebc) log(ls, "size uv: %d kgc: %d kn: %d bc: %d", sizeuv, sizekgc, sizekn, sizebc) end
-function Printer:proto_debug_size(ls, sizedbg) log(ls, "debug size %d", sizedbg) end
+function Printer:header(ls) log(self.out, ls, "Header LuaJIT 2.0 BC") end
+function Printer:flags(ls, flags) log(self.out, ls, format("Flags: %s", flags_string(flags))) end
+function Printer:enter_kgc(ls) log(self.out, ls, ".. kgc ..") end
+function Printer:enter_knum(ls) log(self.out, ls, ".. knum ..") end
+function Printer:enter_bytecode(ls) log(self.out, ls, ".. bytecode ..") end
+function Printer:enter_uv(ls) log(self.out, ls, ".. uv ..") end
+function Printer:enter_debug(ls) log(self.out, ls, ".. debug ..") end
+function Printer:eof(ls) log(self.out, ls, "eof") end
+function Printer:proto_flags(ls, flags) log(self.out, ls, "prototype flags %s", proto_flags_string(flags)) end
+function Printer:proto_len(ls, len) log(self.out, ls, "prototype length %d", len) end
+function Printer:proto_numparams(ls, numparams) log(self.out, ls, "parameters number %d", numparams) end
+function Printer:proto_framesize(ls, framesize) log(self.out, ls, "framesize %d", framesize) end
+function Printer:proto_sizes(ls, sizeuv, sizekgc, sizekn, sizebc) log(self.out, ls, "size uv: %d kgc: %d kn: %d bc: %d", sizeuv, sizekgc, sizekn, sizebc) end
+function Printer:proto_debug_size(ls, sizedbg) log(self.out, ls, "debug size %d", sizedbg) end
 
 function Printer:proto_lines(ls, firstline, numlines)
     self.proto.firstline = firstline
     self.proto.numlines = numlines
-    log(ls, "firstline: %d numline: %d", firstline, numlines)
+    log(self.out, ls, "firstline: %d numline: %d", firstline, numlines)
 end
 
 function Printer:ins(ls, pc, ins, m)
     local s = bcline(self.proto, pc, ins, m, self.proto.target[pc] and "=>")
-    log(ls, "%s", s)
+    log(self.out, ls, "%s", s)
 end
 
 function Printer:knum(ls, i, tag, num)
-    log(ls, "knum %s: %g", tag, num)
+    log(self.out, ls, "knum %s: %g", tag, num)
 end
 
 function Printer:kgc(ls, i, value)
@@ -789,38 +789,38 @@ function Printer:kgc(ls, i, value)
     else
         str = tostring(value)
     end
-    log(ls, "kgc: %s", str)
+    log(self.out, ls, "kgc: %s", str)
 end
 
 function Printer:ktab_dim(ls, narray, nhash)
-    log(ls, "ktab narray: %d nhash: %d", narray, nhash)
+    log(self.out, ls, "ktab narray: %d nhash: %d", narray, nhash)
 end
 
 function Printer:ktabk(ls, tag, value)
     local ps = {"nil", "false", "true"}
     local s = tag == "string" and format("%q", value) or (tag == "pri" and ps[value] or tostring(value))
-    log(ls, "ktabk %s: %s", tag, s)
+    log(self.out, ls, "ktabk %s: %s", tag, s)
 end
 
 function Printer:uv(ls, i, value)
     local uv, islocal, imm = uv_decode(value)
     if islocal then
-        log(ls, "upvalue %slocal %d", imm and "(const) " or "", uv)
+        log(self.out, ls, "upvalue %slocal %d", imm and "(const) " or "", uv)
     else
-        log(ls, "upvalue upper %d", uv)
+        log(self.out, ls, "upvalue upper %d", uv)
     end
 end
 
 function Printer:lineinfo(ls, pc, line)
-    log(ls, "pc%03d: line %d", pc, line)
+    log(self.out, ls, "pc%03d: line %d", pc, line)
 end
 
 function Printer:uvinfo(ls, i, name)
-    log(ls, "uv%d: name: %s", i - 1, name)
+    log(self.out, ls, "uv%d: name: %s", i - 1, name)
 end
 
 function Printer:varinfo(ls, name, startpc, endpc)
-    log(ls, "var: %s pc: %d - %d", name, startpc, endpc)
+    log(self.out, ls, "var: %s pc: %d - %d", name, startpc, endpc)
 end
 
 local BCList = {
@@ -837,7 +837,7 @@ end
 
 function BCList:enter_bytecode()
     local pt = self.proto
-    print(format("-- BYTECODE -- %s:%d-%d", pt.filename, pt.firstline, pt.firstline + pt.numlines))
+    self.out:write(format("-- BYTECODE -- %s:%d-%d\n", pt.filename, pt.firstline, pt.firstline + pt.numlines))
 end
 
 function BCList:proto_lines(ls, firstline, numlines)
@@ -847,19 +847,20 @@ end
 
 function BCList:ins(ls, pc, ins, m)
     local s = bcline(self.proto, pc, ins, m, self.proto.target[pc] and "=>")
-    print(s)
+    self.out:write(s)
+    self.out:write("\n")
 end
 
-function BCList:enter_uv() print() end
+function BCList:enter_uv() self.out:write("\n") end
 
-local function printer_new(class)
-    local p = { childs = {} }
+local function printer_new(output, class)
+    local p = { out = output, childs = {} }
     return setmetatable(p, { __index = class })
 end
 
-local function bcread(s, mode)
+local function bcread(s, output, hexdump)
     local ls = {data = s, n = #s, p = 1, bytes = {}}
-    local printer = printer_new(mode == "list" and BCList or Printer)
+    local printer = printer_new(output, hexdump and Printer or BCList)
     if bcread_byte(ls) ~= BCDUMP.HEAD1 then
         return "invalid header beginning char"
     end
@@ -873,4 +874,4 @@ local function bcread(s, mode)
     end
 end
 
-return { start = bcread }
+return { dump = bcread }
