@@ -1,4 +1,4 @@
--- BYTECODE -- "table-4.lua":0-3
+-- BYTECODE -- table-4.lua:0-3
 0001    TDUP     0   0
 0002    TDUP     1   2
 0003    TSETS    1   0   1  ; "list"

@@ -1,4 +1,4 @@
--- BYTECODE -- "not-operator-3.lua":0-5
+-- BYTECODE -- not-operator-3.lua:0-5
 0001    KSHORT   0   1
 0002    ISEQN    0   0      ; 1
 0003    JMP      0 => 0006

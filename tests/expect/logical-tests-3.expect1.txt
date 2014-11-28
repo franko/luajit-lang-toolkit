@@ -1,4 +1,4 @@
--- BYTECODE -- "logical-tests-3.lua":1-4
+-- BYTECODE -- logical-tests-3.lua:1-4
 0001    ISLT     0   1
 0002    JMP      2 => 0005
 0003    KPRI     2   1
@@ -12,8 +12,8 @@
 0011 => KPRI     2   2
 0012 => RET1     2   2
 
--- BYTECODE -- "logical-tests-3.lua":0-7
-0001    FNEW     0   0      ; "logical-tests-3.lua":1
+-- BYTECODE -- logical-tests-3.lua:0-7
+0001    FNEW     0   0      ; logical-tests-3.lua:1
 0002    GGET     1   1      ; "print"
 0003    MOV      2   0
 0004    KSHORT   3   3

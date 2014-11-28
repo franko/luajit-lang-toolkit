@@ -1,4 +1,4 @@
--- BYTECODE -- "sort-algo.lua":18-20
+-- BYTECODE -- sort-algo.lua:18-20
 0001    ISLT     0   1
 0002    JMP      2 => 0005
 0003    KPRI     2   1
@@ -6,7 +6,7 @@
 0005 => KPRI     2   2
 0006 => RET1     2   2
 
--- BYTECODE -- "sort-algo.lua":22-29
+-- BYTECODE -- sort-algo.lua:22-29
 0001    KSHORT   1   0
 0002 => KSHORT   2   0
 0003    ISGE     2   0
@@ -22,13 +22,13 @@
 0013 => SUBVN    2   1   0  ; 1
 0014    RET1     2   2
 
--- BYTECODE -- "sort-algo.lua":31-33
+-- BYTECODE -- sort-algo.lua:31-33
 0001    UGET     1   0      ; rshift
 0002    MOV      2   0
 0003    KSHORT   3   1
 0004    CALLT    1   3
 
--- BYTECODE -- "sort-algo.lua":38-46
+-- BYTECODE -- sort-algo.lua:38-46
 0001    UGET     4   0      ; div2
 0002    SUBVN    5   1   0  ; 1
 0003    CALL     4   2   2
@@ -60,7 +60,7 @@
 0029    TSETV    3   5   6
 0030    RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":48-65
+-- BYTECODE -- sort-algo.lua:48-65
 0001    MOV      4   1
 0002    MOV      5   1
 0003 => UGET     6   0      ; div2
@@ -120,7 +120,7 @@
 0057    CALL     6   1   5
 0058    RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":67-71
+-- BYTECODE -- sort-algo.lua:67-71
 0001    UGET     3   0      ; array
 0002    TGETV    3   3   2
 0003    UGET     4   0      ; array
@@ -135,7 +135,7 @@
 0012    CALL     4   1   5
 0013    RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":73-85
+-- BYTECODE -- sort-algo.lua:73-85
 0001    SUBVV    2   1   0
 0002    KSHORT   3   2
 0003    ISGE     2   3
@@ -162,7 +162,7 @@
 0024    JMP      4 => 0010
 0025 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":87-94
+-- BYTECODE -- sort-algo.lua:87-94
 0001    UGET     3   0      ; make_heap
 0002    MOV      4   0
 0003    MOV      5   1
@@ -187,7 +187,7 @@
 0022 => FORL     3 => 0009
 0023 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":96-101
+-- BYTECODE -- sort-algo.lua:96-101
 0001 => SUBVV    2   1   0
 0002    KSHORT   3   1
 0003    ISGE     3   2
@@ -202,16 +202,16 @@
 0012    JMP      2 => 0001
 0013 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":35-105
+-- BYTECODE -- sort-algo.lua:35-105
 0001    IST          3
 0002    JMP      4 => 0004
 0003    UGET     3   0      ; less_than
-0004 => FNEW     4   0      ; "sort-algo.lua":38
-0005    FNEW     5   1      ; "sort-algo.lua":48
-0006    FNEW     6   2      ; "sort-algo.lua":67
-0007    FNEW     7   3      ; "sort-algo.lua":73
-0008    FNEW     8   4      ; "sort-algo.lua":87
-0009    FNEW     9   5      ; "sort-algo.lua":96
+0004 => FNEW     4   0      ; sort-algo.lua:38
+0005    FNEW     5   1      ; sort-algo.lua:48
+0006    FNEW     6   2      ; sort-algo.lua:67
+0007    FNEW     7   3      ; sort-algo.lua:73
+0008    FNEW     8   4      ; sort-algo.lua:87
+0009    FNEW     9   5      ; sort-algo.lua:96
 0010    MOV     10   8
 0011    MOV     11   1
 0012    ADDVN   12   2   0  ; 1
@@ -224,7 +224,7 @@
 0019    UCLO     0 => 0020
 0020 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":107-117
+-- BYTECODE -- sort-algo.lua:107-117
 0001    ADDVN    4   2   0  ; 1
 0002    MOV      5   3
 0003    KSHORT   6   1
@@ -250,7 +250,7 @@
 0023    FORL     4 => 0005
 0024 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":122-136
+-- BYTECODE -- sort-algo.lua:122-136
 0001    UGET     3   0      ; f
 0002    UGET     4   1      ; array
 0003    TGETV    4   4   0
@@ -322,7 +322,7 @@
 0069    TSETV    5   3   0
 0070 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":138-153
+-- BYTECODE -- sort-algo.lua:138-153
 0001 => LOOP     3 => 0036
 0002 => UGET     3   0      ; f
 0003    UGET     4   1      ; array
@@ -360,7 +360,7 @@
 0035    JMP      3 => 0001
 0036 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":155-159
+-- BYTECODE -- sort-algo.lua:155-159
 0001    UGET     2   0      ; div2
 0002    ADDVV    3   0   1
 0003    CALL     2   2   2
@@ -376,7 +376,7 @@
 0013    TGETV    6   6   0
 0014    CALLT    3   4
 
--- BYTECODE -- "sort-algo.lua":161-173
+-- BYTECODE -- sort-algo.lua:161-173
 0001 => SUBVV    3   1   0
 0002    UGET     4   0      ; insertion_thresold
 0003    ISGE     4   3
@@ -405,14 +405,14 @@
 0026    JMP      3 => 0001
 0027 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":119-177
+-- BYTECODE -- sort-algo.lua:119-177
 0001    IST          3
 0002    JMP      4 => 0004
 0003    UGET     3   0      ; less_than
-0004 => FNEW     4   0      ; "sort-algo.lua":122
-0005    FNEW     5   1      ; "sort-algo.lua":138
-0006    FNEW     6   2      ; "sort-algo.lua":155
-0007    FNEW     7   3      ; "sort-algo.lua":161
+0004 => FNEW     4   0      ; sort-algo.lua:122
+0005    FNEW     5   1      ; sort-algo.lua:138
+0006    FNEW     6   2      ; sort-algo.lua:155
+0007    FNEW     7   3      ; sort-algo.lua:161
 0008    MOV      8   7
 0009    MOV      9   1
 0010    MOV     10   2
@@ -431,7 +431,7 @@
 0023    UCLO     0 => 0024
 0024 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":179-183
+-- BYTECODE -- sort-algo.lua:179-183
 0001    MOV      4   1
 0002    MOV      5   2
 0003    KSHORT   6   1
@@ -443,7 +443,7 @@
 0009 => FORL     4 => 0005
 0010 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":189-193
+-- BYTECODE -- sort-algo.lua:189-193
 0001    UGET     3   0      ; array
 0002    UGET     4   0      ; array
 0003    UGET     5   0      ; array
@@ -466,7 +466,7 @@
 0020    TSETV    3   0   1
 0021    RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":198-198
+-- BYTECODE -- sort-algo.lua:198-198
 0001    UGET     2   0      ; f
 0002    UGET     3   1      ; array
 0003    TGETV    3   3   0
@@ -474,8 +474,8 @@
 0005    TGETV    4   4   1
 0006    CALLT    2   3
 
--- BYTECODE -- "sort-algo.lua":187-208
-0001    FNEW     5   0      ; "sort-algo.lua":189
+-- BYTECODE -- sort-algo.lua:187-208
+0001    FNEW     5   0      ; sort-algo.lua:189
 0002    SUBVV    6   3   2
 0003    ADDVN    6   6   0  ; 1
 0004    TNEW     7   0
@@ -492,7 +492,7 @@
 0015    MOV     10   7
 0016    MOV     11   2
 0017    MOV     12   3
-0018    FNEW    13   1      ; "sort-algo.lua":198
+0018    FNEW    13   1      ; sort-algo.lua:198
 0019    CALL     9   1   5
 0020    KSHORT   9   1
 0021    MOV     10   6
@@ -525,7 +525,7 @@
 0048 => UCLO     0 => 0049
 0049 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":211-214
+-- BYTECODE -- sort-algo.lua:211-214
 0001    TGETS    1   0   0  ; "x"
 0002    MULNV    1   1   0  ; 16807
 0003    MODVN    1   1   1  ; 2147483647
@@ -533,7 +533,7 @@
 0005    TGETS    1   0   0  ; "x"
 0006    RET1     1   2
 
--- BYTECODE -- "sort-algo.lua":216-222
+-- BYTECODE -- sort-algo.lua:216-222
 0001    TDUP     3   0
 0002    GGET     4   1      ; "print"
 0003    GGET     5   2      ; "string"
@@ -568,80 +568,80 @@
 0032    FORL     5 => 0029
 0033 => RET0     0   1
 
--- BYTECODE -- "sort-algo.lua":224-224
+-- BYTECODE -- sort-algo.lua:224-224
 0001    UGET     1   0      ; my_random
 0002    MOV      2   0
 0003    CALL     1   2   2
 0004    MODVN    1   1   0  ; 65536
 0005    RET1     1   2
 
--- BYTECODE -- "sort-algo.lua":225-225
+-- BYTECODE -- sort-algo.lua:225-225
 0001    RET1     1   2
 
--- BYTECODE -- "sort-algo.lua":226-226
+-- BYTECODE -- sort-algo.lua:226-226
 0001    SUBNV    2   1   0  ; 1000
 0002    RET1     2   2
 
--- BYTECODE -- "sort-algo.lua":227-227
+-- BYTECODE -- sort-algo.lua:227-227
 0001    UGET     1   0      ; my_random
 0002    MOV      2   0
 0003    CALL     1   2   2
 0004    MODVN    1   1   0  ; 65536
 0005    RET1     1   2
 
--- BYTECODE -- "sort-algo.lua":228-228
+-- BYTECODE -- sort-algo.lua:228-228
 0001    RET1     1   2
 
--- BYTECODE -- "sort-algo.lua":229-229
+-- BYTECODE -- sort-algo.lua:229-229
 0001    SUBNV    2   1   0  ; 1000
 0002    RET1     2   2
 
--- BYTECODE -- "sort-algo.lua":0-230
+-- BYTECODE -- sort-algo.lua:0-230
 0001    GGET     0   0      ; "require"
 0002    KSTR     1   1      ; "bit"
 0003    CALL     0   2   2
 0004    TGETS    1   0   2  ; "band"
 0005    TGETS    2   0   3  ; "rshift"
 0006    KSHORT   3  16
-0007    FNEW     4   4      ; "sort-algo.lua":18
-0008    FNEW     5   5      ; "sort-algo.lua":22
-0009    FNEW     6   6      ; "sort-algo.lua":31
-0010    FNEW     7   7      ; "sort-algo.lua":35
-0011    FNEW     8   8      ; "sort-algo.lua":107
-0012    FNEW     9   9      ; "sort-algo.lua":119
-0013    FNEW    10  10      ; "sort-algo.lua":179
-0014    FNEW    11  11      ; "sort-algo.lua":187
-0015    FNEW    12  12      ; "sort-algo.lua":211
-0016    FNEW    13  13      ; "sort-algo.lua":216
+0007    FNEW     4   4      ; sort-algo.lua:18
+0008    FNEW     5   5      ; sort-algo.lua:22
+0009    FNEW     6   6      ; sort-algo.lua:31
+0010    FNEW     7   7      ; sort-algo.lua:35
+0011    FNEW     8   8      ; sort-algo.lua:107
+0012    FNEW     9   9      ; sort-algo.lua:119
+0013    FNEW    10  10      ; sort-algo.lua:179
+0014    FNEW    11  11      ; sort-algo.lua:187
+0015    FNEW    12  12      ; sort-algo.lua:211
+0016    FNEW    13  13      ; sort-algo.lua:216
 0017    MOV     14  13
 0018    KSTR    15  14      ; "QUICKSORT 1"
 0019    MOV     16   9
-0020    FNEW    17  15      ; "sort-algo.lua":224
+0020    FNEW    17  15      ; sort-algo.lua:224
 0021    CALL    14   1   4
 0022    MOV     14  13
 0023    KSTR    15  16      ; "QUICKSORT 2"
 0024    MOV     16   9
-0025    FNEW    17  17      ; "sort-algo.lua":225
+0025    FNEW    17  17      ; sort-algo.lua:225
 0026    CALL    14   1   4
 0027    MOV     14  13
 0028    KSTR    15  18      ; "QUICKSORT 3"
 0029    MOV     16   9
-0030    FNEW    17  19      ; "sort-algo.lua":226
+0030    FNEW    17  19      ; sort-algo.lua:226
 0031    CALL    14   1   4
 0032    MOV     14  13
 0033    KSTR    15  20      ; "HEAPSORT 1"
 0034    MOV     16   7
-0035    FNEW    17  21      ; "sort-algo.lua":227
+0035    FNEW    17  21      ; sort-algo.lua:227
 0036    CALL    14   1   4
 0037    MOV     14  13
 0038    KSTR    15  22      ; "HEAPSORT 2"
 0039    MOV     16   7
-0040    FNEW    17  23      ; "sort-algo.lua":228
+0040    FNEW    17  23      ; sort-algo.lua:228
 0041    CALL    14   1   4
 0042    MOV     14  13
 0043    KSTR    15  24      ; "HEAPSORT 3"
 0044    MOV     16   7
-0045    FNEW    17  25      ; "sort-algo.lua":229
+0045    FNEW    17  25      ; sort-algo.lua:229
 0046    CALL    14   1   4
 0047    UCLO     0 => 0048
 0048 => RET0     0   1

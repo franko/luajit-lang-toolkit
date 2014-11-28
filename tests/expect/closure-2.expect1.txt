@@ -1,32 +1,32 @@
--- BYTECODE -- "closure-2.lua":3-3
+-- BYTECODE -- closure-2.lua:3-3
 0001    UGET     1   0      ; n
 0002    ADDVV    1   1   0
 0003    USETV    0   1      ; n
 0004    RET0     0   1
 
--- BYTECODE -- "closure-2.lua":4-4
+-- BYTECODE -- closure-2.lua:4-4
 0001    UGET     1   0      ; n
 0002    MULVV    1   1   0
 0003    USETV    0   1      ; n
 0004    RET0     0   1
 
--- BYTECODE -- "closure-2.lua":5-5
+-- BYTECODE -- closure-2.lua:5-5
 0001    UGET     0   0      ; n
 0002    RET1     0   2
 
--- BYTECODE -- "closure-2.lua":1-7
+-- BYTECODE -- closure-2.lua:1-7
 0001    TNEW     1 4096
-0002    FNEW     2   1      ; "closure-2.lua":3
+0002    FNEW     2   1      ; closure-2.lua:3
 0003    TSETS    2   1   0  ; "incr"
-0004    FNEW     2   3      ; "closure-2.lua":4
+0004    FNEW     2   3      ; closure-2.lua:4
 0005    TSETS    2   1   2  ; "mult"
-0006    FNEW     2   5      ; "closure-2.lua":5
+0006    FNEW     2   5      ; closure-2.lua:5
 0007    TSETS    2   1   4  ; "get"
 0008    UCLO     0 => 0009
 0009 => RET1     1   2
 
--- BYTECODE -- "closure-2.lua":0-15
-0001    FNEW     0   0      ; "closure-2.lua":1
+-- BYTECODE -- closure-2.lua:0-15
+0001    FNEW     0   0      ; closure-2.lua:1
 0002    MOV      1   0
 0003    KSHORT   2   7
 0004    CALL     1   2   2
