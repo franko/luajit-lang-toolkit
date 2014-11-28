@@ -53,15 +53,9 @@ end
 
 local function check(ok, ...)
     if ok then return ok, ... end
-    io.stderr:write("luajit: ", ...)
+    io.stderr:write("luajit lang toolkit: ", ...)
     io.stderr:write("\n")
     os.exit(1)
-end
-
-local function readfile(input)
-    if type(input) == "function" then return input end
-    if input == "-" then input = nil end
-    return check(loadfile(input))
 end
 
 local function savefile(name, mode)
@@ -586,18 +580,48 @@ end
 
 ------------------------------------------------------------------------------
 
+local function bc_magic_header(input)
+    local f, err = io.open(input, "rb")
+    check(f, "cannot open ", err)
+    local header = f:read(4)
+    local match = (header == string.char(0x1b, 0x4c, 0x4a, 0x01))
+    f:close()
+    return match
+end
+
+
+local function bccompile(ctx, input)
+    local compile = require("lang.compile")
+    local ok, bcstring
+    if ctx.string_input then
+        ok, bcstring = compile.string(input)
+        check(ok, "cannot compile string:", input)
+    else
+        if input == "-" then
+            ok, bcstring = compile.file()
+        else
+            if bc_magic_header(input) then
+                local f = io.open(input, "rb")
+                check(f, "cannot open file")
+                ok, bcstring = true, f:read("*a")
+                f:close()
+            else
+                ok, bcstring = compile.file(input)
+            end
+        end
+        check(ok, "cannot compile file:", input)
+    end
+    return bcstring
+end
+
 local function bclist(ctx, input, output)
-    local success, bcstring = require("lang.compile").file(input)
-    check(success, "cannot compile file:", output)
-    require("lang.bcread").dump(bcstring, savefile(output, "w"), ctx.hexdump)
+    local s = bccompile(ctx, input)
+    require("lang.bcread").dump(s, savefile(output, "w"), ctx.hexdump)
 end
 
 local function bcsave(ctx, input, output)
     -- TODO: implement the ctx.strip option
-    local success, s = require("lang.compile").file(input)
-    check(success, "cannot compile file:", output)
-    -- local f = readfile(input)
-    -- local s = string.dump(f, ctx.strip)
+    local s = bccompile(ctx, input)
     local t = ctx.type
     if not t then
         t = detecttype(output)
@@ -622,7 +646,7 @@ local function docmd(...)
     local list = false
     local ctx = {
         strip = true, arch = jit.arch, os = string.lower(jit.os),
-        type = false, modname = false, hexdump = false,
+        type = false, modname = false, hexdump = false, string_input = false,
     }
     while n <= #arg do
         local a = arg[n]
@@ -644,7 +668,7 @@ local function docmd(...)
             if arg[n] == nil or m ~= #a then usage() end
             if opt == "e" then
                 if n ~= 1 then usage() end
-                arg[1] = check(loadstring(arg[1]))
+                ctx.string_input = true
             elseif opt == "n" then
                 ctx.modname = checkmodname(table.remove(arg, n))
             elseif opt == "t" then
