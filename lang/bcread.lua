@@ -663,7 +663,7 @@ local function bcread_header(ls, target)
         local len = bcread_uleb128(ls)
         bcread_need(ls, len)
         local chunkname = bcread_mem(ls, len)
-        action(target, "chunkname", ls, chunkname)
+        action(target, "set_chunkname", ls, chunkname)
     end
 end
 
@@ -682,6 +682,8 @@ local function proto_new(filename)
         uvinfo = {},
         varinfo = {},
         filename = filename,
+        firstline = 0,
+        numlines = 0,
     }
 end
 
@@ -739,7 +741,7 @@ local Printer = {
     proto_info_target = proto_info_target
 }
 
-function Printer:chunkname(ls, chunkname)
+function Printer:set_chunkname(ls, chunkname)
     self.chunkname = chunkname
     log(self.out, ls, format("Chunkname: %s", chunkname))
 end
@@ -827,7 +829,7 @@ local BCList = {
     proto_info_target = proto_info_target
 }
 
-function BCList:chunkname(ls, chunkname)
+function BCList:set_chunkname(ls, chunkname)
     self.chunkname = chunkname
 end
 
@@ -853,14 +855,14 @@ end
 
 function BCList:enter_uv() self.out:write("\n") end
 
-local function printer_new(output, class)
-    local p = { out = output, childs = {} }
+local function printer_new(output, class, chunkname)
+    local p = { out = output, childs = {}, chunkname = chunkname }
     return setmetatable(p, { __index = class })
 end
 
-local function bcread(s, output, hexdump)
+local function bcread(s, output, chunkname, hexdump)
     local ls = {data = s, n = #s, p = 1, bytes = {}}
-    local printer = printer_new(output, hexdump and Printer or BCList)
+    local printer = printer_new(output, hexdump and Printer or BCList, chunkname)
     if bcread_byte(ls) ~= BCDUMP.HEAD1 then
         return "invalid header beginning char"
     end

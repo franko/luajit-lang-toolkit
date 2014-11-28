@@ -616,7 +616,7 @@ end
 
 local function bclist(ctx, input, output)
     local s = bccompile(ctx, input)
-    require("lang.bcread").dump(s, savefile(output, "w"), ctx.hexdump)
+    require("lang.bcread").dump(s, savefile(output, "w"), input, ctx.hexdump)
 end
 
 local function bcsave(ctx, input, output)
