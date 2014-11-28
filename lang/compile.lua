@@ -35,7 +35,7 @@ local function compile(reader, filename, options)
 end
 
 local function lang_loadstring(src, filename, options)
-    return compile(reader.string(src), filename, options)
+    return compile(reader.string(src), filename or "=stdin", options)
 end
 
 local function lang_loadfile(filename, options)
