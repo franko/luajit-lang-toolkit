@@ -30,8 +30,6 @@ class LabelSource:
 def proto_lines(bcfile):
 	for line in bcfile:
 		if re.match(r'\s*$', line): break
-		if re.match(r'\d+ (  |=>) FNEW', line):
-			line = re.sub(r'"([^"]+)":(\d+)', r'\1:\2', line)
 		yield line
 
 def normalize(source, outfile):
@@ -56,9 +54,8 @@ def normalize(source, outfile):
 
 def parse(bcfile, outfile):
 	for line in bcfile:
-		m = re.match(r'-- BYTECODE -- ([^:]+):(\d+-\d+)', line)
+		m = re.match(r'-- BYTECODE -- ', line)
 		if m:
-			name, lines = m.groups()
 			outfile.write(line)
 			normalize(proto_lines(bcfile), outfile)
 
