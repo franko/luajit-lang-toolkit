@@ -59,8 +59,7 @@ def parse(bcfile, outfile):
 		m = re.match(r'-- BYTECODE -- ([^:]+):(\d+-\d+)', line)
 		if m:
 			name, lines = m.groups()
-			name = re.sub(r'"([^"]+)"', r'\1', name)
-			outfile.write('\n-- BYTECODE -- %s:%s\n' % (name, lines))
+			outfile.write(line)
 			normalize(proto_lines(bcfile), outfile)
 
 def do_process(cmd, dst):
