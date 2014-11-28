@@ -669,7 +669,7 @@ end
 
 local function chunkname_strip(s)
     s = gsub(s, "^@", "")
-    s = gsub(s, ".+/", "")
+    s = gsub(s, ".+[/\\]", "")
     return s
 end
 
