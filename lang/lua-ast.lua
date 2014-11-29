@@ -124,12 +124,12 @@ function AST.identifier(ast, name)
     return ident(name)
 end
 
-function AST.expr_method_call(ast, v, key, args)
+function AST.expr_method_call(ast, v, key, args, line)
     local m = ident(key)
-    return build("SendExpression", { receiver = v, method = m, arguments = args })
+    return build("SendExpression", { receiver = v, method = m, arguments = args, line = line })
 end
 
-function AST.expr_function_call(ast, v, args)
+function AST.expr_function_call(ast, v, args, line)
     return build("CallExpression", { callee = v, arguments = args, line = line })
 end
 

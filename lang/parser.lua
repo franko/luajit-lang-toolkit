@@ -187,6 +187,7 @@ function expr_primary(ast, ls)
         err_syntax(ls, "unexpected symbol")
     end
     while true do -- Parse multiple expression suffixes.
+        local line = ls.linenumber
         if ls.token == '.' then
             vk, v = 'indexed', expr_field(ast, ls, v)
         elseif ls.token == '[' then
@@ -196,10 +197,10 @@ function expr_primary(ast, ls)
             ls:next()
             local key = lex_str(ls)
             local args = parse_args(ast, ls)
-            vk, v = 'call', ast:expr_method_call(v, key, args)
+            vk, v = 'call', ast:expr_method_call(v, key, args, line)
         elseif ls.token == '(' or ls.token == 'TK_string' or ls.token == '{' then
             local args = parse_args(ast, ls)
-            vk, v = 'call', ast:expr_function_call(v, args)
+            vk, v = 'call', ast:expr_function_call(v, args, line)
         else
             break
         end
@@ -310,6 +311,7 @@ function parse_args(ast, ls)
 end
 
 local function parse_assignment(ast, ls, vlist, var, vk)
+    local line = ls.linenumber
     checkcond(ls, vk == 'var' or vk == 'indexed', 'syntax error')
     vlist[#vlist+1] = var
     if lex_opt(ls, ',') then
@@ -318,7 +320,7 @@ local function parse_assignment(ast, ls, vlist, var, vk)
     else -- Parse RHS.
         lex_check(ls, '=')
         local exps = expr_list(ast, ls)
-        return ast:assignment_expr(vlist, exps, ls.linenumber)
+        return ast:assignment_expr(vlist, exps, line)
     end
 end
 
