@@ -233,6 +233,26 @@ local function log(out, ls, fmt, ...)
     ls.bytes = {}
 end
 
+local function chunkname_strip(s)
+    s = gsub(s, "^@", "")
+    s = gsub(s, ".+[/\\]", "")
+    return s
+end
+
+local function proto_new(filename)
+    return {
+        kgc = {},
+        knum = {},
+        uv = {},
+        lineinfo = {},
+        uvinfo = {},
+        varinfo = {},
+        filename = filename,
+        firstline = 0,
+        numlines = 0,
+    }
+end
+
 local function action(obj, method_name, ...)
     local m = obj[method_name]
     if m then m(obj, ...) end
@@ -586,107 +606,6 @@ local function bcread_dbg(ls, target, firstline, numline, sizebc, sizeuv, sizedb
     bcread_varinfo(ls, target)
 end
 
-local function bcread_proto(ls, target)
-    if ls.n > 0 and byte(ls) == 0 then
-        bcread_byte(ls)
-        action(target, "eof", ls)
-        return nil
-    end
-    action(target, "enter_proto", ls)
-    local len = bcread_uleb128(ls)
-    local startn = ls.n
-    action(target, "proto_len", ls, len)
-    if len == 0 then return nil end
-    bcread_need(ls, len)
-
-    -- Read prototype header.
-    local flags = bcread_byte(ls)
-    action(target, "proto_flags", ls, flags)
-    local numparams = bcread_byte(ls)
-    action(target, "proto_numparams", ls, numparams)
-    local framesize = bcread_byte(ls)
-    action(target, "proto_framesize", ls, framesize)
-    local sizeuv = bcread_byte(ls)
-    local sizekgc = bcread_uleb128(ls)
-    local sizekn = bcread_uleb128(ls)
-    local sizebc = bcread_uleb128(ls) + 1
-    action(target, "proto_sizes", ls, sizeuv, sizekgc, sizekn, sizebc)
-
-    local sizedbg, firstline, numline = 0, 0, 0
-    if band(ls.flags, BCDUMP.F_STRIP) == 0 then
-        sizedbg = bcread_uleb128(ls)
-        action(target, "proto_debug_size", ls, sizedbg)
-        if sizedbg > 0 then
-            firstline = bcread_uleb128(ls)
-            numlines = bcread_uleb128(ls)
-            action(target, "proto_lines", ls, firstline, numlines)
-        end
-    end
-
-    local info = target:proto_info_target()
-    if info then
-        local save = save_position(ls)
-        bcread_bytecode(ls, info, sizebc)
-        bcread_uv(ls, info, sizeuv)
-        bcread_kgc(ls, info, sizekgc)
-        bcread_knum(ls, info, sizekn)
-        if sizedbg > 0 then
-            bcread_dbg(ls, info, firstline, numline, sizebc, sizeuv, sizedbg)
-        end
-        restore_position(ls, save)
-    end
-
-    bcread_bytecode(ls, target, sizebc)
-    bcread_uv(ls, target, sizeuv)
-    bcread_kgc(ls, target, sizekgc)
-    bcread_knum(ls, target, sizekn)
-    if sizedbg > 0 then
-        bcread_dbg(ls, target, firstline, numline, sizebc, sizeuv, sizedbg)
-    end
-
-    assert(len == startn - ls.n, "prototype bytecode size mismatch")
-    return target.proto
-end
-
-local function bcread_header(ls, target)
-    if bcread_byte(ls) ~= BCDUMP.HEAD2 or bcread_byte(ls) ~= BCDUMP.HEAD3 or bcread_byte(ls) ~= BCDUMP.VERSION then
-        error("invalid header")
-    end
-    action(target, "header", ls)
-    local flags = bcread_uleb128(ls)
-    ls.flags = flags
-    action(target, "flags", ls, flags)
-    if band(flags, bnot(BCDUMP.F_KNOWN)) ~= 0 then
-        error("unknown flags")
-    end
-    if band(flags, BCDUMP.F_STRIP) == 0 then
-        local len = bcread_uleb128(ls)
-        bcread_need(ls, len)
-        local chunkname = bcread_mem(ls, len)
-        action(target, "set_chunkname", ls, chunkname)
-    end
-end
-
-local function chunkname_strip(s)
-    s = gsub(s, "^@", "")
-    s = gsub(s, ".+[/\\]", "")
-    return s
-end
-
-local function proto_new(filename)
-    return {
-        kgc = {},
-        knum = {},
-        uv = {},
-        lineinfo = {},
-        uvinfo = {},
-        varinfo = {},
-        filename = filename,
-        firstline = 0,
-        numlines = 0,
-    }
-end
-
 -- This function return an object used as target by bcread_* routines in the
 -- first pass of bytecode read. The role of this object is to acquire
 -- informations about kgc, knum, uv, jump targets etc.
@@ -728,6 +647,89 @@ local function proto_info_target(target)
     }
 end
 
+local function bcread_proto(ls, target)
+    if ls.n > 0 and byte(ls) == 0 then
+        bcread_byte(ls)
+        action(target, "eof", ls)
+        return nil
+    end
+    action(target, "enter_proto", ls)
+    local proto = proto_new(chunkname_strip(target.chunkname))
+    target.proto = proto
+    local len = bcread_uleb128(ls)
+    local startn = ls.n
+    action(target, "proto_len", ls, len)
+    if len == 0 then return nil end
+    bcread_need(ls, len)
+
+    -- Read prototype header.
+    local flags = bcread_byte(ls)
+    action(target, "proto_flags", ls, flags)
+    local numparams = bcread_byte(ls)
+    action(target, "proto_numparams", ls, numparams)
+    local framesize = bcread_byte(ls)
+    action(target, "proto_framesize", ls, framesize)
+    local sizeuv = bcread_byte(ls)
+    local sizekgc = bcread_uleb128(ls)
+    local sizekn = bcread_uleb128(ls)
+    local sizebc = bcread_uleb128(ls) + 1
+    action(target, "proto_sizes", ls, sizeuv, sizekgc, sizekn, sizebc)
+
+    local sizedbg, firstline, numline = 0, 0, 0
+    if band(ls.flags, BCDUMP.F_STRIP) == 0 then
+        sizedbg = bcread_uleb128(ls)
+        action(target, "proto_debug_size", ls, sizedbg)
+        if sizedbg > 0 then
+            proto.firstline = bcread_uleb128(ls)
+            proto.numlines = bcread_uleb128(ls)
+            action(target, "proto_lines", ls, proto.firstline, proto.numlines)
+        end
+    end
+
+    local info = proto_info_target(target)
+    if info then
+        local save = save_position(ls)
+        bcread_bytecode(ls, info, sizebc)
+        bcread_uv(ls, info, sizeuv)
+        bcread_kgc(ls, info, sizekgc)
+        bcread_knum(ls, info, sizekn)
+        if sizedbg > 0 then
+            bcread_dbg(ls, info, firstline, numline, sizebc, sizeuv, sizedbg)
+        end
+        restore_position(ls, save)
+    end
+
+    bcread_bytecode(ls, target, sizebc)
+    bcread_uv(ls, target, sizeuv)
+    bcread_kgc(ls, target, sizekgc)
+    bcread_knum(ls, target, sizekn)
+    if sizedbg > 0 then
+        bcread_dbg(ls, target, firstline, numline, sizebc, sizeuv, sizedbg)
+    end
+
+    assert(len == startn - ls.n, "prototype bytecode size mismatch")
+    return target.proto
+end
+
+local function bcread_header(ls, target)
+    if bcread_byte(ls) ~= BCDUMP.HEAD2 or bcread_byte(ls) ~= BCDUMP.HEAD3 or bcread_byte(ls) ~= BCDUMP.VERSION then
+        error("invalid header")
+    end
+    action(target, "header", ls)
+    local flags = bcread_uleb128(ls)
+    ls.flags = flags
+    action(target, "flags", ls, flags)
+    if band(flags, bnot(BCDUMP.F_KNOWN)) ~= 0 then
+        error("unknown flags")
+    end
+    if band(flags, BCDUMP.F_STRIP) == 0 then
+        local len = bcread_uleb128(ls)
+        bcread_need(ls, len)
+        target.chunkname = bcread_mem(ls, len)
+        action(target, "set_chunkname", ls, target.chunkname)
+    end
+end
+
 -- The "printer" object is used to pretty-print on the screen the bytecode's
 -- hex dump side by side with the decoded meaning of each chunk of bytes.
 -- The routines bcread_* reads the bytecode and calls an appropriate "printer"
@@ -737,17 +739,13 @@ end
 -- prototype's informations. The required informations includes kgc, knum, uv,
 -- debug name and line numbers.
 
-local Printer = {
-    proto_info_target = proto_info_target
-}
+local Printer = { }
 
 function Printer:set_chunkname(ls, chunkname)
-    self.chunkname = chunkname
     log(self.out, ls, format("Chunkname: %s", chunkname))
 end
 
 function Printer:enter_proto(ls)
-    self.proto = proto_new(chunkname_strip(self.chunkname))
     log(self.out, ls, ".. prototype ..")
 end
 
@@ -767,8 +765,6 @@ function Printer:proto_sizes(ls, sizeuv, sizekgc, sizekn, sizebc) log(self.out, 
 function Printer:proto_debug_size(ls, sizedbg) log(self.out, ls, "debug size %d", sizedbg) end
 
 function Printer:proto_lines(ls, firstline, numlines)
-    self.proto.firstline = firstline
-    self.proto.numlines = numlines
     log(self.out, ls, "firstline: %d numline: %d", firstline, numlines)
 end
 
@@ -825,26 +821,13 @@ function Printer:varinfo(ls, name, startpc, endpc)
     log(self.out, ls, "var: %s pc: %d - %d", name, startpc, endpc)
 end
 
-local BCList = {
-    proto_info_target = proto_info_target
-}
-
-function BCList:set_chunkname(ls, chunkname)
-    self.chunkname = chunkname
-end
-
-function BCList:enter_proto(ls)
-    self.proto = proto_new(chunkname_strip(self.chunkname))
-end
+-- The BCList object is used to print the bytecode instructions as
+-- "luajit -bl" does.
+local BCList = { }
 
 function BCList:enter_bytecode()
     local pt = self.proto
     self.out:write(format("-- BYTECODE -- %s:%d-%d\n", pt.filename, pt.firstline, pt.firstline + pt.numlines))
-end
-
-function BCList:proto_lines(ls, firstline, numlines)
-    self.proto.firstline = firstline
-    self.proto.numlines = numlines
 end
 
 function BCList:ins(ls, pc, ins, m)
