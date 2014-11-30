@@ -680,9 +680,10 @@ local function bcread_proto(ls, target)
         sizedbg = bcread_uleb128(ls)
         action(target, "proto_debug_size", ls, sizedbg)
         if sizedbg > 0 then
-            proto.firstline = bcread_uleb128(ls)
-            proto.numlines = bcread_uleb128(ls)
-            action(target, "proto_lines", ls, proto.firstline, proto.numlines)
+            firstline = bcread_uleb128(ls)
+            numlines = bcread_uleb128(ls)
+            proto.firstline, proto.numlines = firstline, numlines
+            action(target, "proto_lines", ls, firstline, numlines)
         end
     end
 
