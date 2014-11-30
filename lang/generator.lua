@@ -333,14 +333,17 @@ function StatementRule:FunctionDeclaration(node)
     local path = node.id
     local lhs
     if node.locald then
-        local vinfo = self.ctx:newvar(path.name)
         -- We avoid calling "lhs_expr_emit" on "path" because
         -- it would mark the variable as mutable.
-        lhs = {tag = 'local', target = vinfo.idx}
+        local vinfo = self.ctx:newvar(path.name)
+        self:expr_toreg(node, vinfo.idx)
+        local pc = #self.ctx.code + 1
+        vinfo.startpc = pc
+        vinfo.endpc = pc
     else
         lhs = self:lhs_expr_emit(path)
+        self:expr_tolhs(lhs, node)
     end
-    self:expr_tolhs(lhs, node)
 end
 
 function ExpressionRule:FunctionExpression(node, dest)
@@ -355,10 +358,12 @@ function ExpressionRule:FunctionExpression(node, dest)
         end
     end
     self:block_emit(node.body)
+    self.ctx:line(node.lastline)
     self:close_proto()
 
     self.ctx = self.ctx:parent()
     self.ctx.freereg = free
+    self.ctx:line(node.lastline)
     self.ctx:op_fnew(dest, child.idx)
 end
 
@@ -842,10 +847,10 @@ local function generate(tree, name)
     end
 
     function self:emit(node, ...)
+        if node.line then self.ctx:line(node.line) end
         local rule = StatementRule[node.kind]
         if not rule then error("cannot find a statement rule for " .. node.kind) end
         rule(self, node, ...)
-        if node.line then self.ctx:line(node.line) end
     end
 
     function self:block_emit(stmts, if_exit)
@@ -1017,33 +1022,35 @@ local function generate(tree, name)
     -- Emit code to store an expression in the given LHS.
     function self:expr_tolhs(lhs, expr)
         local free = self.ctx.freereg
+        local line = self.ctx.currline
         if lhs.tag == 'upval' then
             local tag, expr = self:expr_toanyreg_tagged(expr, EXPR_EMIT_VSNP)
+            self.ctx:line(lhs.line)
             self.ctx:op_uset(lhs.uv, tag, expr)
+            self.ctx:line(line)
         elseif lhs.tag == 'local' then
             self:expr_toreg(expr, lhs.target)
         else
             local reg = self:expr_toanyreg(expr)
+            self.ctx:line(lhs.line)
             self:assign(lhs, reg)
+            self.ctx:line(line)
         end
         self.ctx.freereg = free
     end
 
     function self:lhs_expr_emit(node)
+        local line = self.ctx.currline
         local rule = assert(LHSExpressionRule[node.kind], "undefined assignment rule for node type: \"" .. node.kind .. "\"")
-        return rule(self, node)
+        local lhs = rule(self, node)
+        lhs.line = line
+        return lhs
     end
 
     function self:close_proto()
-        if not self.ctx.explret then
-            self.ctx:close_uvals()
-            self.ctx:op_ret0()
-        end
-        local fixups = self.ctx.scope.goto_fixups
-        if #fixups > 0 then
-            local label = fixups[1]
-            local msg = string.format("undefined label '%s'", label.name)
-            lang_error(msg, self.chunkname, label.source_line)
+        local err, line = self.ctx:close_proto()
+        if err then
+            lang_error(err, self.chunkname, line)
         end
     end
 

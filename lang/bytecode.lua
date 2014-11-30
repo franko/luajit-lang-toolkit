@@ -807,11 +807,11 @@ end
 function Proto.__index:newvar(name, dest)
     dest = dest or self:nextreg()
     local vinfo = {
-        idx        = dest;
-        startpc  = #self.code;
-        endpc     = #self.code;
-        name      = name;
-        mutable  = false;
+        idx = dest,
+        startpc = #self.code + 1,
+        endpc = #self.code + 1,
+        name = name,
+        mutable = false,
     }
     -- scoped variable info
     self.scope.actvars[name] = vinfo
@@ -1185,6 +1185,19 @@ function Proto.__index:close_uvals()
     if self:global_uclo() then
         self:emit(BC.UCLO, 0, 0)
     end
+end
+function Proto.__index:close_proto()
+    if not self.explret then
+        self:close_uvals()
+        self:op_ret0()
+    end
+    local fixups = self.scope.goto_fixups
+    if #fixups > 0 then
+        local label = fixups[1]
+        local msg = string.format("undefined label '%s'", label.name)
+        return msg, label.source_line
+    end
+    self:leave()
 end
 function Proto.__index:op_ret(base, rnum)
     return self:emit(BC.RET, base, rnum + 1)
