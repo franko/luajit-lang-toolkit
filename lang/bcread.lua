@@ -632,7 +632,7 @@ local function proto_info_target(target)
         proto.uvinfo[i] = name
     end
     local function varinfo(_, ls, name, startpc, endpc)
-        proto.varinfo[#proto.varinfo + 1] = {name, spartpc, endpc}
+        proto.varinfo[#proto.varinfo + 1] = {name, startpc, endpc}
     end
     local function enter_bytecode()
         proto.target = {}
