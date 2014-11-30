@@ -20,6 +20,7 @@ local function func_decl(id, body, params, vararg, locald, firstline, lastline)
         locald     = locald,
         firstline  = firstline,
         lastline   = lastline,
+        line       = firstline,
     })
 end
 

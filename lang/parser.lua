@@ -339,7 +339,7 @@ local function parse_local(ast, ls)
     local line = ls.linenumber
     if lex_opt(ls, 'TK_function') then -- Local function declaration.
         local name = lex_str(ls)
-        local args, body, proto = parse_body(ast, ls, ls.linenumber, false)
+        local args, body, proto = parse_body(ast, ls, line, false)
         return ast:local_function_decl(name, args, body, proto)
     else -- Local variable declaration.
         local vl = { }
