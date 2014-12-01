@@ -827,7 +827,6 @@ function Proto.__index:newvar(name, dest)
     self.scope.actvars[#self.scope.actvars + 1] = vinfo
 
     -- for the debug segment only
-    vinfo.vidx = #self.varinfo
     self.varinfo[#self.varinfo + 1] = vinfo
 
     return vinfo
