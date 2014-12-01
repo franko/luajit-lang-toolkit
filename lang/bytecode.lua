@@ -587,7 +587,7 @@ function Proto.new(flags, firstline, lastline, outer)
         lastline  = lastline;
         currline  = firstline;
         numlines  = lastline - firstline;
-        framesize = 0;
+        framesize = 1;
         explret = false;
     }, Proto)
 
