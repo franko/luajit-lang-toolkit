@@ -718,6 +718,7 @@ function StatementRule:ForStatement(node)
         self.ctx:op_load(self.ctx.freereg, 1)
         self.ctx:nextreg()
     end
+    local forivinfo = self.ctx:forivars(0x01)
     local loop = self.ctx:op_fori(free)
     self:loop_enter(exit, free)
     self.ctx:newvar(name)
@@ -726,6 +727,7 @@ function StatementRule:ForStatement(node)
     self:block_leave()
     self:loop_leave()
     self.ctx:op_forl(free, loop)
+    forivinfo.endpc = #self.ctx.code
     self.ctx:here(exit)
     self.ctx.freereg = free
 end
@@ -747,6 +749,7 @@ function StatementRule:ForInStatement(node)
 
     self:expr_tomultireg(iter_list[iter_count+1], 3 - iter_count) -- func, state, ctl
     self.ctx:setreg(iter)
+    local forivinfo = self.ctx:forivars(0x04)
     self.ctx:jump(loop, self.ctx.freereg)
 
     self:loop_enter(exit, free)
@@ -763,6 +766,7 @@ function StatementRule:ForInStatement(node)
     self.ctx:here(loop)
     self.ctx:op_iterc(iter, #vars)
     self.ctx:op_iterl(iter, ltop)
+    forivinfo.endpc = #self.ctx.code
     self.ctx:here(exit)
     self.ctx.freereg = free
 end

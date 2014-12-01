@@ -797,9 +797,18 @@ function Proto.__index:write_debug(buf)
     for i=1, #self.varinfo do
         local var = self.varinfo[i]
         local startpc, endpc = (var.startpc or 0), (var.endpc or 0) + 1
-        buf:put_bytes(var.name.."\0")
-        buf:put_uleb128(startpc - lastpc)
-        buf:put_uleb128(endpc - startpc)
+        if type(var.name) == "number" then
+            for n = var.name, var.name + 2 do
+                buf:put(n)
+                buf:put_uleb128(startpc - lastpc)
+                buf:put_uleb128(endpc - startpc)
+                lastpc = startpc
+            end
+        else
+            buf:put_bytes(var.name.."\0")
+            buf:put_uleb128(startpc - lastpc)
+            buf:put_uleb128(endpc - startpc)
+        end
         lastpc = startpc
     end
     buf:put(0)
@@ -821,6 +830,14 @@ function Proto.__index:newvar(name, dest)
     vinfo.vidx = #self.varinfo
     self.varinfo[#self.varinfo + 1] = vinfo
 
+    return vinfo
+end
+-- Add debug variables informations for implicit for variables.
+-- The code should be 1 for simple "for" statements and 4 for
+-- "for in" statements.
+function Proto.__index:forivars(code)
+    local vinfo = { name = code, startpc = #self.code + 1 }
+    self.varinfo[#self.varinfo + 1] = vinfo
     return vinfo
 end
 local function scope_var_lookup(scope, name)
