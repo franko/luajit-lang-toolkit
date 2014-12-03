@@ -618,6 +618,31 @@ function StatementRule:LocalDeclaration(node)
     end
 end
 
+-- Eliminate write-after-read hazards for local variable assignment.
+-- Implement the same approach found in lj_parse.c from luajit.
+-- Check left-hand side against variable register "reg".
+local function assign_hazard(self, lhs, reg)
+    local tmp = self.ctx.freereg -- Rename to this temp. register (if needed).
+    local hazard = false
+    for i =  #lhs, 1, -1 do
+        if lhs[i].tag == 'member' then
+            if lhs[i].target == reg then -- t[i], t = 1, 2
+                hazard = true
+                lhs[i].target = tmp
+            end
+            if lhs[i].key_type == 'V' and
+               lhs[i].key == reg then -- t[i], i = 1, 2
+                hazard = true
+                lhs[i].key = tmp
+            end
+        end
+    end
+    if hazard then
+        self.ctx:nextreg()
+        self.ctx:op_move(tmp, reg)
+    end
+end
+
 function StatementRule:AssignmentExpression(node)
     local free = self.ctx.freereg
     local nvars = #node.left
@@ -625,7 +650,11 @@ function StatementRule:AssignmentExpression(node)
 
     local lhs = { }
     for i = 1, nvars do
-        lhs[i] = self:lhs_expr_emit(node.left[i])
+        local va = self:lhs_expr_emit(node.left[i])
+        if va.tag == 'local' then
+            assign_hazard(self, lhs, va.target)
+        end
+        lhs[i] = va
     end
 
     local slots = nvars
