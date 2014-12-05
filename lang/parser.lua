@@ -380,7 +380,7 @@ local function parse_while(ast, ls, line)
     local body = parse_block(ast, ls)
     lex_match(ls, 'TK_end', 'TK_while', line)
     ast:fscope_end()
-    return ast:while_stmt(cond, body, ls.linenumber)
+    return ast:while_stmt(cond, body, line)
 end
 
 local function parse_then(ast, ls, tests, blocks)
