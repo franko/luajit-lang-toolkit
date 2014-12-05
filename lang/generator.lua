@@ -738,6 +738,7 @@ function StatementRule:ForStatement(node)
     local exit = util.genid()
     local init = node.init
     local name = init.id.name
+    local line = node.line
 
     self:expr_tonextreg(init.value)
     self:expr_tonextreg(node.last)
@@ -756,6 +757,7 @@ function StatementRule:ForStatement(node)
     self:block_leave()
     self:loop_leave()
     self.ctx:op_forl(free, loop)
+    self.ctx.lninfo[#self.ctx.lninfo] = line
     forivinfo.endpc = #self.ctx.code
     self.ctx:here(exit)
     self.ctx.freereg = free
@@ -763,6 +765,7 @@ end
 function StatementRule:ForInStatement(node)
     local free = self.ctx.freereg
     local iter = free + 3
+    local line = node.line
 
     local loop, exit = util.genid(), util.genid()
 
@@ -794,7 +797,9 @@ function StatementRule:ForInStatement(node)
     self:loop_leave()
     self.ctx:here(loop)
     self.ctx:op_iterc(iter, #vars)
+    self.ctx.lninfo[#self.ctx.lninfo] = line
     self.ctx:op_iterl(iter, ltop)
+    self.ctx.lninfo[#self.ctx.lninfo] = line
     forivinfo.endpc = #self.ctx.code
     self.ctx:here(exit)
     self.ctx.freereg = free
