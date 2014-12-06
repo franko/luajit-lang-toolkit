@@ -757,7 +757,7 @@ function StatementRule:ForStatement(node)
     self:block_leave()
     self:loop_leave()
     self.ctx:op_forl(free, loop)
-    self.ctx.lninfo[#self.ctx.lninfo] = line
+    self.ctx:setpcline(line)
     forivinfo.endpc = #self.ctx.code
     self.ctx:here(exit)
     self.ctx.freereg = free
@@ -797,9 +797,9 @@ function StatementRule:ForInStatement(node)
     self:loop_leave()
     self.ctx:here(loop)
     self.ctx:op_iterc(iter, #vars)
-    self.ctx.lninfo[#self.ctx.lninfo] = line
+    self.ctx:setpcline(line)
     self.ctx:op_iterl(iter, ltop)
-    self.ctx.lninfo[#self.ctx.lninfo] = line
+    self.ctx:setpcline(line)
     forivinfo.endpc = #self.ctx.code
     self.ctx:here(exit)
     self.ctx.freereg = free
@@ -870,6 +870,8 @@ local function generate(tree, name)
     end
 
     function self:assign(lhs, expr)
+        local saveline = self.ctx.currline
+        self.ctx:line(lhs.line)
         if lhs.tag == 'member' then
             -- SET instructions with a Primitive "P" index are not accepted.
             -- The method self:lhs_expr_emit does never generate such requests.
@@ -882,6 +884,7 @@ local function generate(tree, name)
         else
             self.ctx:op_gset(expr, lhs.name)
         end
+        self.ctx:line(saveline)
     end
 
     function self:emit(node, ...)
@@ -1060,19 +1063,15 @@ local function generate(tree, name)
     -- Emit code to store an expression in the given LHS.
     function self:expr_tolhs(lhs, expr)
         local free = self.ctx.freereg
-        local line = self.ctx.currline
         if lhs.tag == 'upval' then
             local tag, expr = self:expr_toanyreg_tagged(expr, EXPR_EMIT_VSNP)
-            self.ctx:line(lhs.line)
             self.ctx:op_uset(lhs.uv, tag, expr)
-            self.ctx:line(line)
+            self.ctx:setpcline(lhs.line)
         elseif lhs.tag == 'local' then
             self:expr_toreg(expr, lhs.target)
         else
             local reg = self:expr_toanyreg(expr)
-            self.ctx:line(lhs.line)
             self:assign(lhs, reg)
-            self.ctx:line(line)
         end
         self.ctx.freereg = free
     end

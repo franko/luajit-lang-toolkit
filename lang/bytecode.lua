@@ -695,6 +695,10 @@ end
 function Proto.__index:line(ln)
     self.currline = ln
 end
+-- Set line number for the last generated instruction.
+function Proto.__index:setpcline(ln)
+    self.lninfo[#self.lninfo] = ln
+end
 function Proto.__index:emit(op, a, b, c)
     local ins = Ins.new(op, a, b, c)
     self.code[#self.code + 1] = ins
