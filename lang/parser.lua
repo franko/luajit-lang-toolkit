@@ -508,22 +508,21 @@ local function new_proto(ls, varargs)
     return { varargs = varargs }
 end
 
-local function parse_chunk(ast, ls, top_level)
+function parse_block_stmts(ast, ls)
     local firstline = ls.linenumber
-    local islast = false
+    local stmt, islast = nil, false
     local body = { }
     while not islast and not EndOfBlock[ls.token] do
-        local stmt
         stmt, islast = parse_stmt(ast, ls)
         body[#body + 1] = stmt
         lex_opt(ls, ';')
     end
-    local lastline = ls.linenumber
-    if top_level then
-        return ast:chunk(body, ls.chunkname, 0, lastline)
-    else
-        return body
-    end
+    return body, firstline, ls.linenumber
+end
+
+local function parse_chunk(ast, ls)
+    local body, firstline, lastline = parse_block_stmts(ast, ls)
+    return ast:chunk(body, ls.chunkname, 0, lastline)
 end
 
 -- Parse body of a function.
@@ -547,9 +546,9 @@ end
 
 function parse_block(ast, ls)
     ast:fscope_begin()
-    local block = parse_chunk(ast, ls, false)
+    local body = parse_block_stmts(ast, ls)
     ast:fscope_end()
-    return block
+    return body
 end
 
 local function parse(ast, ls)
@@ -557,7 +556,7 @@ local function parse(ast, ls)
     ls.fs = new_proto(ls, true)
     ast:fscope_begin()
     local args = { ast:expr_vararg(ast) }
-    local chunk = parse_chunk(ast, ls, true)
+    local chunk = parse_chunk(ast, ls)
     ast:fscope_end()
     if ls.token ~= 'TK_eof' then
         err_token(ls, 'TK_eof')
