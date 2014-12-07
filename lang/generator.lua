@@ -656,7 +656,7 @@ function StatementRule:AssignmentExpression(node)
     local nvars = #node.left
     local nexps = #node.right
 
-    local lhs = { }
+    local lhs = { }
     for i = 1, nvars do
         local va = self:lhs_expr_emit(node.left[i])
         if va.tag == 'local' then
