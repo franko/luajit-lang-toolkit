@@ -358,8 +358,7 @@ function ExpressionRule:FunctionExpression(node, dest)
         end
     end
     self:block_emit(node.body)
-    self.ctx:line(node.lastline)
-    self:close_proto()
+    self:close_proto(node.lastline)
 
     self.ctx = self.ctx:parent()
     self.ctx.freereg = free
@@ -558,8 +557,7 @@ end
 function StatementRule:DoStatement(node)
     self:block_enter()
     self:block_emit(node.body)
-    self:block_leave()
-    self.ctx:line(node.lastline)
+    self:block_leave(node.body.lastline)
 end
 
 function StatementRule:IfStatement(node, root_exit)
@@ -583,7 +581,7 @@ function StatementRule:IfStatement(node, root_exit)
 
         self:block_enter()
         self:block_emit(block, bexit)
-        self:block_leave(bexit)
+        self:block_leave(block.lastline, bexit)
 
         self.ctx:here(next_test)
         count = count - 1
@@ -592,7 +590,7 @@ function StatementRule:IfStatement(node, root_exit)
     if node.alternate then
         self:block_enter()
         self:block_emit(node.alternate)
-        self:block_leave()
+        self:block_leave(node.alternate.lastline)
     end
     if exit and exit == local_exit then
         self.ctx:here(exit)
@@ -714,8 +712,7 @@ function StatementRule:WhileStatement(node)
     self:block_emit(node.body)
     self.ctx:jump(loop, free)
     self.ctx:here(exit)
-    self:loop_leave()
-    self.ctx:line(node.lastline)
+    self:loop_leave(node.lastline)
     self.ctx.freereg = free
 end
 function StatementRule:RepeatStatement(node)
@@ -727,8 +724,7 @@ function StatementRule:RepeatStatement(node)
     self:block_emit(node.body)
     self:test_emit(node.test, loop, free)
     self.ctx:here(exit)
-    self:loop_leave()
-    self.ctx:line(node.lastline)
+    self:loop_leave(node.lastline)
     self.ctx.freereg = free
 end
 function StatementRule:BreakStatement()
@@ -758,11 +754,10 @@ function StatementRule:ForStatement(node)
     self:block_enter()
     self:block_emit(node.body)
     self:block_leave()
-    self:loop_leave()
+    self:loop_leave(node.body.lastline)
     self.ctx:op_forl(free, loop)
     self.ctx:setpcline(line)
     forivinfo.endpc = #self.ctx.code
-    self.ctx:line(node.lastline)
     self.ctx:here(exit)
     self.ctx.freereg = free
 end
@@ -798,14 +793,13 @@ function StatementRule:ForInStatement(node)
 
     local ltop = self.ctx:here(util.genid())
     self:block_emit(node.body)
-    self:loop_leave()
+    self:loop_leave(node.lastline)
     self.ctx:here(loop)
     self.ctx:op_iterc(iter, #vars)
     self.ctx:setpcline(line)
     self.ctx:op_iterl(iter, ltop)
     self.ctx:setpcline(line)
     forivinfo.endpc = #self.ctx.code
-    self.ctx:line(node.lastline)
     self.ctx:here(exit)
     self.ctx.freereg = free
 end
@@ -859,10 +853,11 @@ local function generate(tree, name)
         self.ctx:enter()
     end
 
-    function self:block_leave(exit)
+    function self:block_leave(lastline, exit)
         self.ctx:fscope_end()
         self.ctx:close_block(self.ctx.scope.basereg, exit)
         self.ctx:leave()
+        if lastline then self.ctx:line(lastline) end
     end
 
     function self:loop_enter(exit, exit_reg)
@@ -870,8 +865,8 @@ local function generate(tree, name)
         self.ctx:loop_register(exit, exit_reg)
     end
 
-    function self:loop_leave()
-        self:block_leave()
+    function self:loop_leave(lastline)
+        self:block_leave(lastline)
     end
 
     function self:assign(lhs, expr)
@@ -1092,7 +1087,8 @@ local function generate(tree, name)
         return lhs
     end
 
-    function self:close_proto()
+    function self:close_proto(lastline)
+        if lastline then self.ctx:line(lastline) end
         local err, line = self.ctx:close_proto()
         if err then
             lang_error(err, self.chunkname, line)
