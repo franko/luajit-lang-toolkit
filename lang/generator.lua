@@ -916,6 +916,7 @@ local function generate(tree, name)
     -- If "store" is not ZERO than dest should be the register
     -- destination for the result.
     function self:test_emit(node, jmp, jreg, negate, store, dest)
+        if node.line then self.ctx:line(node.line) end
         local rule = TestRule[node.kind]
         store = store or 0
         if rule then
@@ -970,6 +971,7 @@ local function generate(tree, name)
     -- a tail call was actually used.
     -- This function always leave the freereg counter to its initial value.
     function self:expr_toreg(node, dest, jreg, tail)
+        if node.line then self.ctx:line(node.line) end
         local const_val = const_eval(node)
         if const_val then
             self.ctx:op_load(dest, const_val)
@@ -1010,6 +1012,7 @@ local function generate(tree, name)
     -- Return two boolean values. The first indicate if it does return multi
     -- results. The second if a tail call was actually generated.
     function self:expr_tomultireg(node, want, tail)
+        if node.line then self.ctx:line(node.line) end
         local rule = MultiExprRule[node.kind]
         if rule then
             return rule(self, node, want, tail)

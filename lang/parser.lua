@@ -147,9 +147,10 @@ end
 function expr_unop(ast, ls)
     local tk = ls.token
     if tk == 'TK_not' or tk == '-' or tk == '#' then
+        local line = ls.linenumber
         ls:next()
         local v = expr_binop(ast, ls, operator.unary_priority)
-        return ast:expr_unop(ls.token2str(tk), v)
+        return ast:expr_unop(ls.token2str(tk), v, line)
     else
         return expr_simple(ast, ls)
     end
@@ -160,9 +161,10 @@ function expr_binop(ast, ls, limit)
     local v = expr_unop(ast, ls)
     local op = ls.token2str(ls.token)
     while operator.is_binop(op) and operator.left_priority(op) > limit do
+        local line = ls.linenumber
         ls:next()
         local v2, nextop = expr_binop(ast, ls, operator.right_priority(op))
-        v = ast:expr_binop(op, v, v2)
+        v = ast:expr_binop(op, v, v2, line)
         op = nextop
     end
     return v, op

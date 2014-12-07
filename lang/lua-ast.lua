@@ -92,7 +92,7 @@ function AST.expr_table(ast, avals, hkeys, hvals, line)
     return build("Table", { array_entries = avals, hash_keys = hkeys, hash_values = hvals, line = line })
 end
 
-function AST.expr_unop(ast, op, v)
+function AST.expr_unop(ast, op, v, line)
     return build("UnaryExpression", { operator = op, argument = v, line = line })
 end
 
@@ -105,7 +105,7 @@ local function concat_append(ts, node)
     end
 end
 
-function AST.expr_binop(ast, op, expa, expb)
+function AST.expr_binop(ast, op, expa, expb, line)
     local binop_body = (op ~= '..' and { operator = op, left = expa, right = expb, line = line })
     if binop_body then
         if op == 'and' or op == 'or' then
