@@ -549,13 +549,13 @@ local function bcread_knum(ls, target, sizekn)
     end
 end
 
-local function bcread_lineinfo(ls, target, firstline, numline, sizebc, sizedbg)
-    if numline < 256 then
+local function bcread_lineinfo(ls, target, firstline, numlines, sizebc, sizedbg)
+    if numlines < 256 then
         for pc = 1, sizebc - 1 do
             local line = bcread_byte(ls)
             action(target, "lineinfo", ls, pc, firstline + line)
         end
-    elseif numline < 65536 then
+    elseif numlines < 65536 then
         for pc = 1, sizebc - 1 do
             local line = bcread_uint16(ls)
             action(target, "lineinfo", ls, pc, firstline + line)
@@ -599,9 +599,9 @@ local function bcread_varinfo(ls, target)
     end
 end
 
-local function bcread_dbg(ls, target, firstline, numline, sizebc, sizeuv, sizedbg)
+local function bcread_dbg(ls, target, firstline, numlines, sizebc, sizeuv, sizedbg)
     action(target, "enter_debug", ls)
-    bcread_lineinfo(ls, target, firstline, numline, sizebc, sizedbg)
+    bcread_lineinfo(ls, target, firstline, numlines, sizebc, sizedbg)
     bcread_uvinfo(ls, target, sizeuv)
     bcread_varinfo(ls, target)
 end
@@ -675,7 +675,7 @@ local function bcread_proto(ls, target)
     local sizebc = bcread_uleb128(ls) + 1
     action(target, "proto_sizes", ls, sizeuv, sizekgc, sizekn, sizebc)
 
-    local sizedbg, firstline, numline = 0, 0, 0
+    local sizedbg, firstline, numlines = 0, 0, 0
     if band(ls.flags, BCDUMP.F_STRIP) == 0 then
         sizedbg = bcread_uleb128(ls)
         action(target, "proto_debug_size", ls, sizedbg)
@@ -695,7 +695,7 @@ local function bcread_proto(ls, target)
         bcread_kgc(ls, info, sizekgc)
         bcread_knum(ls, info, sizekn)
         if sizedbg > 0 then
-            bcread_dbg(ls, info, firstline, numline, sizebc, sizeuv, sizedbg)
+            bcread_dbg(ls, info, firstline, numlines, sizebc, sizeuv, sizedbg)
         end
         restore_position(ls, save)
     end
@@ -705,7 +705,7 @@ local function bcread_proto(ls, target)
     bcread_kgc(ls, target, sizekgc)
     bcread_knum(ls, target, sizekn)
     if sizedbg > 0 then
-        bcread_dbg(ls, target, firstline, numline, sizebc, sizeuv, sizedbg)
+        bcread_dbg(ls, target, firstline, numlines, sizebc, sizeuv, sizedbg)
     end
 
     assert(len == startn - ls.n, "prototype bytecode size mismatch")
