@@ -241,7 +241,7 @@ local function parse_for_num(ast, ls, varname, line)
     lex_check(ls, 'TK_do')
     local body = parse_block(ast, ls)
     local var = ast:identifier(varname)
-    return ast:for_stmt(var, init, last, step, body, line)
+    return ast:for_stmt(var, init, last, step, body, line, ls.linenumber)
 end
 
 -- Parse 'for' iterator.
@@ -255,7 +255,7 @@ local function parse_for_iter(ast, ls, indexname)
     local exps = expr_list(ast, ls)
     lex_check(ls, 'TK_do')
     local body = parse_block(ast, ls)
-    return ast:for_iter_stmt(vars, exps, body, line)
+    return ast:for_iter_stmt(vars, exps, body, line, ls.linenumber)
 end
 
 -- Parse 'for' statement.
@@ -278,10 +278,11 @@ local function parse_repeat(ast, ls, line)
     ast:fscope_begin()
     ls:next() -- Skip 'repeat'.
     local body = parse_block(ast, ls)
+    local lastline = ls.linenumber
     lex_match(ls, 'TK_until', 'TK_repeat', line)
     local cond = expr(ast, ls) -- Parse condition.
     ast:fscope_end()
-    return ast:repeat_stmt(cond, body, line)
+    return ast:repeat_stmt(cond, body, line, lastline)
 end
 
 -- Parse function argument list.
@@ -380,9 +381,10 @@ local function parse_while(ast, ls, line)
     ast:fscope_begin()
     lex_check(ls, 'TK_do')
     local body = parse_block(ast, ls)
+    local lastline = ls.linenumber
     lex_match(ls, 'TK_end', 'TK_while', line)
     ast:fscope_end()
-    return ast:while_stmt(cond, body, line)
+    return ast:while_stmt(cond, body, line, lastline)
 end
 
 local function parse_then(ast, ls, tests, blocks)
@@ -442,8 +444,9 @@ local function parse_stmt(ast, ls)
     elseif ls.token == 'TK_do' then
         ls:next()
         local body = parse_block(ast, ls)
+        local lastline = ls.linenumber
         lex_match(ls, 'TK_end', 'TK_do', line)
-        stmt = ast:do_stmt(body, line)
+        stmt = ast:do_stmt(body, line, lastline)
     elseif ls.token == 'TK_for' then
         stmt = parse_for(ast, ls, line)
     elseif ls.token == 'TK_repeat' then

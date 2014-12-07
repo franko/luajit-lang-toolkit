@@ -559,6 +559,7 @@ function StatementRule:DoStatement(node)
     self:block_enter()
     self:block_emit(node.body)
     self:block_leave()
+    self.ctx:line(node.lastline)
 end
 
 function StatementRule:IfStatement(node, root_exit)
@@ -714,6 +715,7 @@ function StatementRule:WhileStatement(node)
     self.ctx:jump(loop, free)
     self.ctx:here(exit)
     self:loop_leave()
+    self.ctx:line(node.lastline)
     self.ctx.freereg = free
 end
 function StatementRule:RepeatStatement(node)
@@ -726,6 +728,7 @@ function StatementRule:RepeatStatement(node)
     self:test_emit(node.test, loop, free)
     self.ctx:here(exit)
     self:loop_leave()
+    self.ctx:line(node.lastline)
     self.ctx.freereg = free
 end
 function StatementRule:BreakStatement()
@@ -759,6 +762,7 @@ function StatementRule:ForStatement(node)
     self.ctx:op_forl(free, loop)
     self.ctx:setpcline(line)
     forivinfo.endpc = #self.ctx.code
+    self.ctx:line(node.lastline)
     self.ctx:here(exit)
     self.ctx.freereg = free
 end
@@ -801,6 +805,7 @@ function StatementRule:ForInStatement(node)
     self.ctx:op_iterl(iter, ltop)
     self.ctx:setpcline(line)
     forivinfo.endpc = #self.ctx.code
+    self.ctx:line(node.lastline)
     self.ctx:here(exit)
     self.ctx.freereg = free
 end

@@ -154,26 +154,26 @@ function AST.if_stmt(ast, tests, cons, else_branch, line)
     return build("IfStatement", { tests = tests, cons = cons, alternate = else_branch, line = line })
 end
 
-function AST.do_stmt(ast, body, line)
-    return build("DoStatement", { body = body, line = line })
+function AST.do_stmt(ast, body, line, lastline)
+    return build("DoStatement", { body = body, line = line, lastline = lastline})
 end
 
-function AST.while_stmt(ast, test, body, line)
-    return build("WhileStatement", { test = test, body = body, line = line })
+function AST.while_stmt(ast, test, body, line, lastline)
+    return build("WhileStatement", { test = test, body = body, line = line, lastline = lastline })
 end
 
-function AST.repeat_stmt(ast, test, body, line)
-    return build("RepeatStatement", { test = test, body = body, line = line })
+function AST.repeat_stmt(ast, test, body, line, lastline)
+    return build("RepeatStatement", { test = test, body = body, line = line, lastline = lastline })
 end
 
-function AST.for_stmt(ast, var, init, last, step, body, line)
+function AST.for_stmt(ast, var, init, last, step, body, line, lastline)
     local for_init = build("ForInit", { id = var, value = init, line = line })
-    return build("ForStatement", { init = for_init, last = last, step = step, body = body, line = line })
+    return build("ForStatement", { init = for_init, last = last, step = step, body = body, line = line, lastline = lastline })
 end
 
-function AST.for_iter_stmt(ast, vars, exps, body, line)
+function AST.for_iter_stmt(ast, vars, exps, body, line, lastline)
     local names = build("ForNames", { names = vars, line = line })
-    return build("ForInStatement", { namelist = names, explist = exps, body = body, line = line })
+    return build("ForInStatement", { namelist = names, explist = exps, body = body, line = line, lastline = lastline })
 end
 
 function AST.goto_stmt(ast, name, line)
