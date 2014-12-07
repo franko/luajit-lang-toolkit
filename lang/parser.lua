@@ -239,7 +239,7 @@ local function parse_for_num(ast, ls, varname, line)
         step = ast:literal(1)
     end
     lex_check(ls, 'TK_do')
-    local body = parse_block(ast, ls)
+    local body = parse_block(ast, ls, line)
     local var = ast:identifier(varname)
     return ast:for_stmt(var, init, last, step, body, line, ls.linenumber)
 end
@@ -254,7 +254,7 @@ local function parse_for_iter(ast, ls, indexname)
     local line = ls.linenumber
     local exps = expr_list(ast, ls)
     lex_check(ls, 'TK_do')
-    local body = parse_block(ast, ls)
+    local body = parse_block(ast, ls, line)
     return ast:for_iter_stmt(vars, exps, body, line, ls.linenumber)
 end
 
@@ -387,23 +387,24 @@ local function parse_while(ast, ls, line)
     return ast:while_stmt(cond, body, line, lastline)
 end
 
-local function parse_then(ast, ls, tests, blocks)
+local function parse_then(ast, ls, tests, line)
     ls:next()
     tests[#tests+1] = expr(ast, ls)
     lex_check(ls, 'TK_then')
-    blocks[#blocks+1] = parse_block(ast, ls)
+    return parse_block(ast, ls, line)
 end
 
 local function parse_if(ast, ls, line)
     local tests, blocks = { }, { }
-    parse_then(ast, ls, tests, blocks)
+    blocks[1] = parse_then(ast, ls, tests, line)
     while ls.token == 'TK_elseif' do
-        parse_then(ast, ls, tests, blocks)
+        blocks[#blocks+1] = parse_then(ast, ls, tests, ls.linenumber)
     end
     local else_branch
     if ls.token == 'TK_else' then
+        local eline = ls.linenumber
         ls:next() -- Skip 'else'.
-        else_branch = parse_block(ast, ls)
+        else_branch = parse_block(ast, ls, eline)
     end
     lex_match(ls, 'TK_end', 'TK_if', line)
     return ast:if_stmt(tests, blocks, else_branch, line)
@@ -547,9 +548,10 @@ function parse_body(ast, ls, line, needself)
     return args, body, proto
 end
 
-function parse_block(ast, ls)
+function parse_block(ast, ls, firstline)
     ast:fscope_begin()
     local body = parse_block_stmts(ast, ls)
+    body.firstline, body.lastline = firstline, ls.linenumber
     ast:fscope_end()
     return body
 end
