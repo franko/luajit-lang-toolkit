@@ -22,6 +22,7 @@
 #include "lualib.h"
 #include "luajit.h"
 #include "language.h"
+#include "lua-language-gs.h"
 
 #if defined(__linux__)
 #include <unistd.h>
@@ -408,6 +409,18 @@ static struct Smain {
   int status;
 } smain;
 
+static void override_loaders(lua_State *L)
+{
+  luaopen_langloaders(L);
+  lua_getfield(L, -1, "loadstring");
+  lua_setfield(L, LUA_GLOBALSINDEX, "loadstring");
+  lua_getfield(L, -1, "loadfile");
+  lua_setfield(L, LUA_GLOBALSINDEX, "loadfile");
+  lua_getfield(L, -1, "dofile");
+  lua_setfield(L, LUA_GLOBALSINDEX, "dofile");
+  lua_pop(L, 1);
+}
+
 static int pmain(lua_State *L)
 {
   struct Smain *s = &smain;
@@ -430,6 +443,7 @@ static int pmain(lua_State *L)
   }
   lua_gc(L, LUA_GCSTOP, 0);  /* stop collector during initialization */
   luaL_openlibs(L);  /* open libraries */
+  override_loaders(L);
   lua_gc(L, LUA_GCRESTART, -1);
   if ((flags & FLAGS_VERSION)) print_version();
   s->status = runargs(L, argv, (script > 0) ? script : s->argc);

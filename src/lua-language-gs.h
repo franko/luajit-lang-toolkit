@@ -3,6 +3,6 @@
 
 #include "lua.h"
 
-extern int luaopen_language(lua_State *L);
+extern int luaopen_langloaders(lua_State *L);
 
 #endif

@@ -55,9 +55,9 @@ static const luaL_Reg language_lib[] = {
   { NULL, NULL }
 };
 
-int luaopen_language(lua_State *L)
+int luaopen_langloaders(lua_State *L)
 {
-    luaL_register(L, "lang", language_lib);
-    lua_pop(L, 1);
-    return 0;
+    lua_newtable(L);
+    luaL_register(L, NULL, language_lib);
+    return 1;
 }
