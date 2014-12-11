@@ -3,7 +3,7 @@
 #include "lua.h"
 #include "lauxlib.h"
 #include "language.h"
-#include "lua-language-gs.h"
+#include "language_loaders.h"
 
 static int
 language_lua_loadfile(lua_State* L)

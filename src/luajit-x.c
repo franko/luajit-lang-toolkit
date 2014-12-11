@@ -22,7 +22,7 @@
 #include "lualib.h"
 #include "luajit.h"
 #include "language.h"
-#include "lua-language-gs.h"
+#include "language_loaders.h"
 
 #if defined(__linux__)
 #include <unistd.h>

@@ -45,7 +45,7 @@ LIBS += $(LUAJIT_LIBS)
 
 COMPILE = $(CC) $(CFLAGS) $(DEFS) $(INCLUDES)
 
-LANG_SRC_FILES = language-gs.c lua-language-gs.c
+LANG_SRC_FILES = language.c language_loaders.c
 LANG_OBJ_FILES := $(LANG_SRC_FILES:%.c=%.o)
 DEP_FILES := $(LANG_SRC_FILES:%.c=.deps/%.P)
 
