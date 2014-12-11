@@ -117,7 +117,7 @@ int language_report(lua_State *_L, int status)
     if (status && !lua_isnil(L, -1)) {
         const char *msg = lua_tostring(L, -1);
         if (msg == NULL) msg = "(error object is not a string)";
-        l_message("<GSL Shell parser>", msg);
+        l_message("<luajit-lang-toolkit parser>", msg);
         lua_pop(L, 1);
     }
     return status;
