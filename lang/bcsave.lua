@@ -654,33 +654,33 @@ local function docmd(...)
             table.remove(arg, n)
             if a == "--" then break end
             for m=2,#a do
-        local opt = string.sub(a, m, m)
-        if opt == "l" then
-            list = true
-        elseif opt == "s" then
-            ctx.strip = true
-        elseif opt == "g" then
-            ctx.strip = false
-        elseif opt == "x" then
-            list = true
-            ctx.hexdump = true
-        else
-            if arg[n] == nil or m ~= #a then usage() end
-            if opt == "e" then
-                if n ~= 1 then usage() end
-                ctx.string_input = true
-            elseif opt == "n" then
-                ctx.modname = checkmodname(table.remove(arg, n))
-            elseif opt == "t" then
-                ctx.type = checkarg(table.remove(arg, n), map_type, "file type")
-            elseif opt == "a" then
-                ctx.arch = checkarg(table.remove(arg, n), map_arch, "architecture")
-            elseif opt == "o" then
-                ctx.os = checkarg(table.remove(arg, n), map_os, "OS name")
-            else
-                usage()
-            end
-        end
+                local opt = string.sub(a, m, m)
+                if opt == "l" then
+                    list = true
+                elseif opt == "s" then
+                    ctx.strip = true
+                elseif opt == "g" then
+                    ctx.strip = false
+                elseif opt == "x" then
+                    list = true
+                    ctx.hexdump = true
+                else
+                    if arg[n] == nil or m ~= #a then usage() end
+                    if opt == "e" then
+                        if n ~= 1 then usage() end
+                        ctx.string_input = true
+                    elseif opt == "n" then
+                        ctx.modname = checkmodname(table.remove(arg, n))
+                    elseif opt == "t" then
+                        ctx.type = checkarg(table.remove(arg, n), map_type, "file type")
+                    elseif opt == "a" then
+                        ctx.arch = checkarg(table.remove(arg, n), map_arch, "architecture")
+                    elseif opt == "o" then
+                        ctx.os = checkarg(table.remove(arg, n), map_os, "OS name")
+                    else
+                        usage()
+                    end
+                end
             end
         else
             n = n + 1
