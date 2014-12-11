@@ -411,14 +411,23 @@ static struct Smain {
 
 static void override_loaders(lua_State *L)
 {
+  lua_getfield(L, LUA_GLOBALSINDEX, "package");
+  lua_getfield(L, -1, "loaders");
+  lua_remove(L, -2);
+
   luaopen_langloaders(L);
   lua_getfield(L, -1, "loadstring");
   lua_setfield(L, LUA_GLOBALSINDEX, "loadstring");
+
   lua_getfield(L, -1, "loadfile");
   lua_setfield(L, LUA_GLOBALSINDEX, "loadfile");
+
   lua_getfield(L, -1, "dofile");
   lua_setfield(L, LUA_GLOBALSINDEX, "dofile");
-  lua_pop(L, 1);
+
+  lua_getfield(L, -1, "loader");
+  lua_rawseti(L, -3, 2);
+  lua_pop(L, 2);
 }
 
 static int pmain(lua_State *L)
