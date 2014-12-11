@@ -34,14 +34,15 @@ language_lua_dofile(lua_State* L)
 static int
 language_lua_loadstring(lua_State* L)
 {
-    const char *s = luaL_checkstring(L, 1);
+    size_t len;
+    const char *s = luaL_checklstring(L, 1, &len);
     const char *name;
     if (lua_isnoneornil(L, 2)) {
         name = NULL;
     } else {
         name = luaL_checkstring(L, 2);
     }
-    int status = language_loadbuffer(L, s, strlen(s), name);
+    int status = language_loadbuffer(L, s, len, name);
     if (status != 0) {
         return lua_error(L);
     }

@@ -93,6 +93,10 @@ language_check_error(lua_State *L, const char *filename, int parse_status)
 int
 language_loadbuffer(lua_State *L, const char *buff, size_t sz, const char *name)
 {
+    /* Check if the string begin with the bytecode header. */
+    if (sz >= 4 && buff[0] == 0x1b && buff[1] == 0x4c && buff[2] == 0x4a) {
+        return luaL_loadbuffer(L, buff, sz, name);
+    }
     lua_pushvalue(parser_L, MY_LOADSTRING_INDEX);
     lua_pushlstring(parser_L, buff, sz);
     lua_pushstring(parser_L, name);
