@@ -90,6 +90,10 @@ local function is_local_var(ctx, node)
     end
 end
 
+local function is_vcall(node)
+    return (MultiExprRule[node.kind] ~= nil)
+end
+
 local function mov_toreg(ctx, dest, src)
     if dest ~= src then
         ctx:op_move(dest, src)
@@ -198,6 +202,9 @@ function ExpressionRule:Table(node, dest)
             if not t then t = emit_tdup(self, free, ins) end
             t.array[k] = expr_val
             narray = k + 1
+        elseif is_vcall(expr) and k == #node.array_entries then
+            self:expr_tomultireg(expr, MULTIRES)
+            self.ctx:op_tsetm(free, k)
         else
             local ktag, kval
             if k < 256 then
