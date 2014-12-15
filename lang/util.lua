@@ -49,10 +49,4 @@ end
 
 exports.dump = dump
 
-local ID = 0
-exports.genid = function()
-   ID = ID + 1
-   return '__'..ID
-end
-
 return exports

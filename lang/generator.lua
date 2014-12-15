@@ -9,11 +9,15 @@
 -- See Copyright Notice in LICENSE
 --
 
-local bc   = require('lang.bytecode')
-local util = require('lang.util')
-
+local bc = require('lang.bytecode')
 local const_eval = require("lang.ast-const-eval")
 local boolean_const_eval = require("lang.ast-boolean-const-eval")
+
+local ID = 0
+local function genid()
+   ID = ID + 1
+   return '__'..ID
+end
 
 local BC = bc.BC
 
@@ -279,7 +283,7 @@ function ExpressionRule:BinaryExpression(node, dest, jreg)
     local free = self.ctx.freereg
     local o = node.operator
     if cmpop[o] then
-        local l = util.genid()
+        local l = genid()
         self:test_emit(node, l, jreg, false, EXPR_RESULT_BOTH, dest)
         self.ctx:here(l)
     elseif dirop[o] then
@@ -323,7 +327,7 @@ end
 function ExpressionRule:LogicalExpression(node, dest, jreg)
     local negate = (node.operator == 'or')
     local lstore = store_bit(negate)
-    local l = util.genid()
+    local l = genid()
     self:test_emit(node.left, l, jreg, negate, lstore, dest)
     self:expr_toreg(node.right, dest, jreg)
     self.ctx:here(l)
@@ -501,7 +505,7 @@ function TestRule:BinaryExpression(node, jmp, jreg, negate, store, dest)
         local use_imbranch = has_branch(store, negate)
         if use_imbranch then
             local test, swap = compare_op(not negate, o)
-            local altlabel = util.genid()
+            local altlabel = genid()
             self.ctx:op_comp(test, a, btag, b, altlabel, free, swap)
             self.ctx:op_load(dest, negate)
             self.ctx:jump(jmp, jreg)
@@ -532,7 +536,7 @@ function TestRule:LogicalExpression(node, jmp, jreg, negate, store, dest)
     local lstore = bit.band(store, store_bit(or_operator))
     local imbranch = xor(negate, or_operator)
     if imbranch then
-        local templ = util.genid()
+        local templ = genid()
         self:test_emit(node.left, templ, jreg, not negate, lstore, dest)
         self:test_emit(node.right, jmp, jreg, negate, store, dest)
         self.ctx:here(templ)
@@ -572,14 +576,14 @@ function StatementRule:IfStatement(node, root_exit)
     local ncons = #node.tests
     -- Count the number of branches, including the "else" branch.
     local count = node.alternate and ncons + 1 or ncons
-    local local_exit = count > 1 and util.genid()
+    local local_exit = count > 1 and genid()
     -- Set the exit point to the extern exit if given or set to local
     -- exit (potentially false).
     local exit = root_exit or local_exit
 
     for i = 1, ncons do
         local test, block = node.tests[i], node.cons[i]
-        local next_test = util.genid()
+        local next_test = genid()
         -- Set the exit point to jump on at the end of for this block.
         -- If this is the last branch (count == 1) set to false.
         local bexit = count > 1 and exit
@@ -711,7 +715,7 @@ function StatementRule:AssignmentExpression(node)
 end
 function StatementRule:WhileStatement(node)
     local free = self.ctx.freereg
-    local loop, exit = util.genid(), util.genid()
+    local loop, exit = genid(), genid()
     self:loop_enter(exit, free)
     self.ctx:here(loop)
     self:test_emit(node.test, exit, free)
@@ -724,7 +728,7 @@ function StatementRule:WhileStatement(node)
 end
 function StatementRule:RepeatStatement(node)
     local free = self.ctx.freereg
-    local loop, exit = util.genid(), util.genid()
+    local loop, exit = genid(), genid()
     self:loop_enter(exit, free)
     self.ctx:here(loop)
     self.ctx:loop(exit)
@@ -741,7 +745,7 @@ function StatementRule:BreakStatement()
 end
 function StatementRule:ForStatement(node)
     local free = self.ctx.freereg
-    local exit = util.genid()
+    local exit = genid()
     local init = node.init
     local name = init.id.name
     local line = node.line
@@ -773,7 +777,7 @@ function StatementRule:ForInStatement(node)
     local iter = free + 3
     local line = node.line
 
-    local loop, exit = util.genid(), util.genid()
+    local loop, exit = genid(), genid()
 
     local vars = node.namelist.names
     local iter_list = node.explist
@@ -798,7 +802,7 @@ function StatementRule:ForInStatement(node)
         self.ctx:setreg(iter + i)
     end
 
-    local ltop = self.ctx:here(util.genid())
+    local ltop = self.ctx:here(genid())
     self:block_emit(node.body)
     self:loop_leave(node.lastline)
     self.ctx:here(loop)
