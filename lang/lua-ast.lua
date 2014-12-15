@@ -1,4 +1,7 @@
-local build = require('lang.syntax').build
+local function build(kind, node)
+    node.kind = kind
+    return node
+end
 
 local function ident(name, line)
     return build("Identifier", { name = name, line = line })
