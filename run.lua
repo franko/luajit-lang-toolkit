@@ -1,6 +1,3 @@
-local compile = require("lang.compile")
-local bcsave = require("lang.bcsave")
-
 local function usage()
   io.stderr:write[[
 LuaJIT Language Toolkit usage: luajit [options]... [script [args]...].
@@ -32,7 +29,7 @@ while args[k] do
         else
             table.remove(args, j)
         end
-        bcsave.start(unpack(args))
+        require("lang.bcsave").start(unpack(args))
         os.exit(0)
     else
         if string.sub(args[k], 1, 1) == "-" then
@@ -46,6 +43,8 @@ while args[k] do
 end
 
 if not filename then usage() end
+
+local compile = require("lang.compile")
 
 -- Compute the bytecode string for the given filename.
 local luacode = check(compile.file(filename))
