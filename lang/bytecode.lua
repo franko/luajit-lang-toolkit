@@ -567,7 +567,7 @@ Proto = {
     NOJIT  = 0x08; -- JIT disabled for this function.
     ILOOP  = 0x10; -- Patched bytecode with ILOOP etc.
 }
-function Proto.new(flags, outer)
+function Proto.new(flags, firstline, lastline, outer)
     local proto = setmetatable({
         flags  = flags or 0;
         outer  = outer;
@@ -583,11 +583,11 @@ function Proto.new(flags, outer)
         kcache = {};
         varinfo = {};
         freereg   = 0;
-        currline  = 1;
-        lastline  = 1;
-        firstline = 1;
-        numlines  = 0;
-        framesize = 0;
+        firstline = firstline;
+        lastline  = lastline;
+        currline  = firstline;
+        numlines  = lastline - firstline;
+        framesize = 1;
         explret = false;
     }, Proto)
 
@@ -610,6 +610,12 @@ function Proto.__index:setreg(reg)
         self.framesize = self.freereg
     end
 end
+function Proto.__index:maxframe(reg)
+    if reg > self.framesize then
+        self.framesize = reg
+    end
+end
+
 function Proto.__index:enter()
     local outer = self.scope
     self.scope = {
@@ -633,13 +639,9 @@ function Proto.__index:leave()
     self.scope = self.scope.outer
     self.freereg = freereg
 end
-function Proto.__index:set_line(firstline, lastline)
-    self.firstline = firstline
-    self.numlines = lastline - firstline
-end
-function Proto.__index:child(flags)
+function Proto.__index:child(firstline, lastline)
     self.flags = bor(self.flags, Proto.CHILD)
-    local child = Proto.new(flags, self)
+    local child = Proto.new(0, firstline, lastline, self)
     child.idx = #self.kobj
     self.kobj[child] = #self.kobj
     self.kobj[#self.kobj + 1] = child
@@ -693,8 +695,11 @@ end
 function Proto.__index:line(ln)
     self.currline = ln
 end
+-- Set line number for the last generated instruction.
+function Proto.__index:setpcline(ln)
+    self.lninfo[#self.lninfo] = ln
+end
 function Proto.__index:emit(op, a, b, c)
-    --print(("Ins:%s %s %s %s"):format(BC[op], a, b, c))
     local ins = Ins.new(op, a, b, c)
     self.code[#self.code + 1] = ins
     self.lninfo[#self.lninfo + 1] = self.currline
@@ -796,29 +801,46 @@ function Proto.__index:write_debug(buf)
     for i=1, #self.varinfo do
         local var = self.varinfo[i]
         local startpc, endpc = (var.startpc or 0), (var.endpc or 0) + 1
-        buf:put_bytes(var.name.."\0")
-        buf:put_uleb128(startpc - lastpc)
-        buf:put_uleb128(endpc - startpc)
+        if type(var.name) == "number" then
+            for n = var.name, var.name + 2 do
+                buf:put(n)
+                buf:put_uleb128(startpc - lastpc)
+                buf:put_uleb128(endpc - startpc)
+                lastpc = startpc
+            end
+        else
+            buf:put_bytes(var.name.."\0")
+            buf:put_uleb128(startpc - lastpc)
+            buf:put_uleb128(endpc - startpc)
+        end
         lastpc = startpc
     end
+    buf:put(0)
 end
 function Proto.__index:newvar(name, dest)
     dest = dest or self:nextreg()
     local vinfo = {
-        idx        = dest;
-        startpc  = #self.code;
-        endpc     = #self.code;
-        name      = name;
-        mutable  = false;
+        idx = dest,
+        startpc = #self.code + 1,
+        endpc = #self.code + 1,
+        name = name,
+        mutable = false,
     }
     -- scoped variable info
     self.scope.actvars[name] = vinfo
     self.scope.actvars[#self.scope.actvars + 1] = vinfo
 
     -- for the debug segment only
-    vinfo.vidx = #self.varinfo
     self.varinfo[#self.varinfo + 1] = vinfo
 
+    return vinfo
+end
+-- Add debug variables informations for implicit for variables.
+-- The code should be 1 for simple "for" statements and 4 for
+-- "for in" statements.
+function Proto.__index:forivars(code)
+    local vinfo = { name = code, startpc = #self.code + 1 }
+    self.varinfo[#self.varinfo + 1] = vinfo
     return vinfo
 end
 local function scope_var_lookup(scope, name)
@@ -1141,12 +1163,12 @@ function Proto.__index:op_tset(tab, ktag, key, val)
     self:emit(BC[ins_name], val, tab, key)
 end
 function Proto.__index:op_tsetm(base, vnum)
-    local knum = double_new(0)
-    local vint = ffi.cast('uint8_t*', knum)
-    vint[0] = band(vnum, 0x00FF)
-    vint[1] = shr(vnum, 8)
-    local vidx = self:const(tonumber(knum[0]))
-    return self:emit(BC.TSETM, base, vidx)
+    local dptr = double_new(0)
+    local iptr = ffi.cast('uint32_t*', dptr)
+    iptr[0] = vnum
+    iptr[1] = 0x43300000 -- Biased integer to avoid denormals.
+    local vidx = self:const(dptr[0])
+    return self:emit(BC.TSETM, base + 1, vidx)
 end
 function Proto.__index:op_fnew(dest, pidx)
     return self:emit(BC.FNEW, dest, pidx)
@@ -1183,6 +1205,19 @@ function Proto.__index:close_uvals()
     if self:global_uclo() then
         self:emit(BC.UCLO, 0, 0)
     end
+end
+function Proto.__index:close_proto()
+    if not self.explret then
+        self:close_uvals()
+        self:op_ret0()
+    end
+    local fixups = self.scope.goto_fixups
+    if #fixups > 0 then
+        local label = fixups[1]
+        local msg = string.format("undefined label '%s'", label.name)
+        return msg, label.source_line
+    end
+    self:leave()
 end
 function Proto.__index:op_ret(base, rnum)
     return self:emit(BC.RET, base, rnum + 1)
@@ -1245,7 +1280,7 @@ Dump = {
 Dump.__index = {}
 function Dump.new(main, name)
     local self =  setmetatable({
-        main  = main or Proto.new(Proto.VARARG);
+        main  = main;
         name  = name;
         flags = band(main.flags, Dump.FFI);
     }, Dump)
@@ -1257,11 +1292,8 @@ function Dump.__index:write_header(buf)
     buf:put(Dump.HEAD_3)
     buf:put(Dump.VERS)
     buf:put(self.flags)
-    local name = string.gsub(self.name, "[^/\\]+[/\\]", "")
+    local name = self.name and "@" .. self.name or "(binary)"
     if band(self.flags, Dump.STRIP) == 0 then
-        if not name then
-            name = '(binary)'
-        end
         buf:put_uleb128(#name)
         buf:put_bytes(name)
     end

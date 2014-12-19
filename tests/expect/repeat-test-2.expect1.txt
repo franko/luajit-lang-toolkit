@@ -1,4 +1,4 @@
--- BYTECODE -- "repeat-test-2.lua":1-11
+-- BYTECODE -- repeat-test-2.lua:1-11
 0001    KSHORT   1   0
 0002    KSHORT   2   1
 0003    KPRI     3   0
@@ -15,8 +15,8 @@
 0014    JMP      4 => 0004
 0015 => RET1     1   2
 
--- BYTECODE -- "repeat-test-2.lua":0-14
-0001    FNEW     0   0      ; "repeat-test-2.lua":1
+-- BYTECODE -- repeat-test-2.lua:0-14
+0001    FNEW     0   0      ; repeat-test-2.lua:1
 0002    GGET     1   1      ; "print"
 0003    MOV      2   0
 0004    KSHORT   3  20

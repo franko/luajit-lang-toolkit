@@ -1,4 +1,4 @@
--- BYTECODE -- "goto-for-1.lua":1-10
+-- BYTECODE -- goto-for-1.lua:1-10
 0001    GGET     1   0      ; "ipairs"
 0002    MOV      2   0
 0003    CALL     1   4   2
@@ -17,8 +17,8 @@
 0016    CALL     1   1   2
 0017 => RET0     0   1
 
--- BYTECODE -- "goto-for-1.lua":0-13
-0001    FNEW     0   0      ; "goto-for-1.lua":1
+-- BYTECODE -- goto-for-1.lua:0-13
+0001    FNEW     0   0      ; goto-for-1.lua:1
 0002    MOV      1   0
 0003    TDUP     2   1
 0004    CALL     1   1   2

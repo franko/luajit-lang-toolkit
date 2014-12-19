@@ -1,4 +1,4 @@
--- BYTECODE -- "test-6.lua":0-6
+-- BYTECODE -- test-6.lua:0-6
 0001    KPRI     0   0
 0002    KPRI     1   0
 0003    ISTC     0   1

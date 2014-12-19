@@ -11,7 +11,12 @@ local function new_string_reader(src)
 end
 
 local function new_file_reader(filename)
-    local f = assert(io.open(filename, 'r'), "cannot open file " .. filename)
+    local f
+    if filename then
+        f = assert(io.open(filename, 'r'), "cannot open file " .. filename)
+    else
+        f = io.stdin
+    end
     local function reader()
         return f:read(4096 - 32)
     end

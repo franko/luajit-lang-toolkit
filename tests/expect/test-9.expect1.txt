@@ -1,4 +1,4 @@
--- BYTECODE -- "test-9.lua":0-4
+-- BYTECODE -- test-9.lua:0-4
 0001    KSHORT   0   5
 0002    KSHORT   1  10
 0003    ISGE     1   0

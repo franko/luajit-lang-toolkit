@@ -17,51 +17,10 @@ def lua_files(test_dir):
 			if m:
 				yield dirpath, m.group(1)
 
-class LabelSource:
-	def __init__(self):
-		self.index = 1
-		self.defs = {}
-	def get(self, lab):
-		if not lab in self.defs:
-			self.defs[lab] = "X%03d" % self.index
-			self.index += 1
-		return self.defs[lab]
-
-def proto_lines(bcfile):
-	for line in bcfile:
-		if re.match(r'\s*$', line): break
-		yield line
-
-def normalize(source, outfile):
-	labels = LabelSource()
-	for line in source:
-		rline = None
-		m = re.match(r'(\d{4}) (  |=>) (.*)', line)
-		lab, ref, rem = m.groups()
-		rem = re.sub(r'\r+', r'', rem)
-		mr = re.match(r'([A-Z0-9]+\s+)(\d+) => (\d+)(.*)', rem)
-		if mr:
-			ins, reg, jmp, xrem = mr.groups()
-			jmp = labels.get(jmp)
-			rem = "%s%s => %s%s" % (ins, reg, jmp, xrem)
-		if ref == '=>':
-			lab = labels.get(lab)
-		else:
-			lab = "    "
-		rline = "%4s %s %s\n" % (lab, ref, rem)
-
-		outfile.write(rline)
-
-def parse(bcfile, outfile):
-	for line in bcfile:
-		m = re.match(r'-- BYTECODE -- ', line)
-		if m:
-			outfile.write(line)
-			normalize(proto_lines(bcfile), outfile)
-
 def do_process(cmd, dst):
 	src = subprocess.Popen(cmd, stdout = subprocess.PIPE).stdout
-	parse(src, dst)
+	for line in src:
+		dst.write(re.sub(r'\x0d', '', line))
 
 def do_process_output(cmd):
 	sf = StringIO.StringIO()
@@ -71,14 +30,15 @@ def do_process_output(cmd):
 	return s
 
 def expected_bytecode(name, fullname):
-	s = do_process_output([luajit_exec, "-bl", fullname])
+	subprocess.check_call([luajit_exec, "-bg", fullname, ".out.raw"])
+	s = do_process_output([luajit_x, "-bx", ".out.raw"])
 	yield s, "luajit"
-	expect_dir = os.path.join("tests", "expect")
+	expect_dir = os.path.join("tests", "expect_hex")
 	for expect_filename in glob(os.path.join(expect_dir, "*.txt")):
 		efilename = os.path.basename(expect_filename)
 		m = re.match(r'([^.]+)\.(expect\d+)\.txt$', efilename)
 		if m and m.group(1) == name:
-			ef = open(expect_filename, "r")
+			ef = open(expect_filename, "rb")
 			sf = StringIO.StringIO()
 			parse(ef, sf)
 			s = sf.getvalue()
@@ -89,8 +49,8 @@ def expected_bytecode(name, fullname):
 def write_diff(a, b, a_name, b_name):
 	fna = "tests/log/%s.txt" % a_name
 	fnb = "tests/log/%s.%s.txt" % (a_name, b_name)
-	af = open(fna, "w")
-	bf = open(fnb, "w")
+	af = open(fna, "wb")
+	bf = open(fnb, "wb")
 	af.write(a)
 	bf.write(b)
 	af.close()
@@ -130,7 +90,7 @@ for filename in glob("tests/log/*"):
 for dirpath, name in lua_files(test_dir):
 	fullname = os.path.join(dirpath, name + ".lua")
 
-	output_test = do_process_output([luajit_x, "-bl", fullname])
+	output_test = do_process_output([luajit_x, "-bx", fullname])
 	msg, source = compare_to_ref(name, fullname, output_test)
 
 	led = " " if msg == "pass" else "*"

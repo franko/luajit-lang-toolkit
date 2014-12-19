@@ -1,4 +1,4 @@
--- BYTECODE -- "expr-prio-1.lua":0-14
+-- BYTECODE -- expr-prio-1.lua:0-14
 0001    KSHORT   0   2
 0002    KSHORT   1   3
 0003    ADDNV    2   0   0  ; 2
