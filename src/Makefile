@@ -40,6 +40,7 @@ else
   LUAJIT_LIBS := $(shell pkg-config luajit --libs)
 endif
 
+CC = gcc
 CFLAGS = -g -Wall
 
 CFLAGS += $(LUAJIT_CFLAGS)
