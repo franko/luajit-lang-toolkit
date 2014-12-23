@@ -18,10 +18,16 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 
-all:
+all: lang src
+
+lang:
+	$(MAKE) -C lang
+
+src: lang
 	$(MAKE) -C src
 
 clean:
 	$(MAKE) -C src clean
+	$(MAKE) -C lang clean
 
-.PHONY: clean all
+.PHONY: clean all lang src

@@ -8,6 +8,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 #include "language.h"
+#include "language_bcloader.h"
 
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
@@ -43,6 +44,7 @@ language_init(lua_State *L) {
         return LUA_ERRRUN;
     }
     luaL_openlibs(parser_L);
+    language_bc_preload(parser_L);
 
     lua_getglobal(parser_L, "require");
     lua_pushstring(parser_L, "lang.compile");
