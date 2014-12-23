@@ -38,6 +38,7 @@ else
   LUAJIT_LIBS := $(shell pkg-config luajit --libs)
 endif
 
+CC = gcc
 CFLAGS = -g -Wall
 
 CFLAGS += $(LUAJIT_CFLAGS)
@@ -58,7 +59,7 @@ TARGETS = liblang.a
 all: $(TARGETS) luajit-x
 
 luajit-x: $(LANG_OBJ_FILES) luajit-x.o
-	$(COMPILE) -o $@ $(LANG_OBJ_FILES) luajit-x.o $(LIBS)
+	$(CC) -o $@ $(LANG_OBJ_FILES) luajit-x.o $(LIBS)
 
 liblang.a: $(LANG_OBJ_FILES)
 	@echo Archive $@
