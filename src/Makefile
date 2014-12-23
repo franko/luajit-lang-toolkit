@@ -45,9 +45,11 @@ CFLAGS = -g -Wall
 CFLAGS += $(LUAJIT_CFLAGS)
 LIBS += $(LUAJIT_LIBS)
 
+INCLUDES += -I..
+
 COMPILE = $(CC) $(CFLAGS) $(DEFS) $(INCLUDES)
 
-LANG_SRC_FILES = language.c language_loaders.c
+LANG_SRC_FILES = language_bcloader.c language.c language_loaders.c
 LANG_OBJ_FILES := $(LANG_SRC_FILES:%.c=%.o)
 DEP_FILES := $(LANG_SRC_FILES:%.c=.deps/%.P)
 
