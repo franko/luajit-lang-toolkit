@@ -289,8 +289,21 @@ function ExpressionRule:BinaryExpression(node, dest, jreg)
     elseif dirop[o] then
         local atag, a = self:expr_toanyreg_tagged(node.left, EXPR_EMIT_VN)
         local btag, b = self:expr_toanyreg_tagged(node.right, EXPR_EMIT_VN)
+        if atag == "N" and btag == "N" then
+            -- handle "nan" values here the same way LuaJIT does
+            -- usually, both operands will always be 0 when both constant but
+            -- re-check just to make sure, in order to trigger the assert when
+            -- there's a bug in the generator
+            local aval = const_eval(node.left)
+            local bval = const_eval(node.right)
+            if aval == 0 and bval == 0 then
+                atag, a = "V", self.ctx.freereg
+                self.ctx:op_load(self.ctx:nextreg(), 0)
+            else
+                assert(false, "operands are both constants")
+            end
+        end
         self.ctx.freereg = free
-        assert(not (atag == 'N' and btag == 'N'), "operands are both constants")
         self.ctx:op_infix(dirop[o], dest, atag, a, btag, b)
     else
         local a = self:expr_toanyreg(node.left)
