@@ -24,6 +24,8 @@ else
   HOST_SYS:= $(shell uname -s)
   ifneq (,$(findstring CYGWIN,$(TARGET_SYS)))
     HOST_SYS= Windows
+  else ifeq (Darwin,$(HOST_SYS))
+    LFLAGS += -pagezero_size 10000 -image_base 100000000
   endif
 endif
 
@@ -56,7 +58,7 @@ TARGETS = liblang.a
 all: $(TARGETS) luajit-x
 
 luajit-x: $(LANG_OBJ_FILES) luajit-x.o
-	$(COMPILE) -o $@ $(LANG_OBJ_FILES) luajit-x.o $(LIBS)
+	$(COMPILE) -o $@ $(LANG_OBJ_FILES) luajit-x.o $(LIBS) $(LFLAGS)
 
 liblang.a: $(LANG_OBJ_FILES)
 	@echo Archive $@
