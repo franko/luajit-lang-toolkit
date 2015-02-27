@@ -187,43 +187,32 @@ local FOR_GEN   = "(for generator)";
 local FOR_STATE = "(for state)";
 local FOR_CTL   = "(for control)";
 
-ffi.cdef[[
-    void *malloc(size_t);
-    void *realloc(void*, size_t);
-    int free(void*);
-
-    typedef struct Buf {
-        unsigned int size;
-        unsigned int offs;
-        uint8_t *data;
-    } Buf;
-]]
-
 local function num_is_int32(x)
     return x % 1 == 0 and x >= -2^31 and x < 2^31
 end
 
 Buf = {}
 Buf.new = function(size)
-    if not size then
-        size = 2048
-    end
-    local self = ffi.new('Buf', size)
-    self.data  = ffi.C.malloc(size)
-    self.offs  = 0
-    return self
+    size = size or 2048
+    local self = {
+        data = ffi.new('char[?]', size),
+        size = size,
+        offs = 0,
+    }
+    return setmetatable(self, Buf)
 end
-Buf.__gc = function(self)
-    ffi.C.free(self.data)
-end
+
 Buf.__index = {}
 Buf.__index.need = function(self, size)
     local need_size = self.offs + size
     if self.size <= need_size then
+        local prev_size = self.size
         while self.size <= need_size do
             self.size = self.size * 2
         end
-        self.data = ffi.C.realloc(ffi.cast('void*', self.data), self.size)
+        local new_data = ffi.new('char[?]', self.size)
+        ffi.copy(new_data, self.data, prev_size)
+        self.data = new_data
     end
 end
 Buf.__index.put = function(self, v)
@@ -331,8 +320,6 @@ Buf.__index.put_number = function(self, v)
     end
     return offs
 end
-
-ffi.metatype('Buf', Buf)
 
 Ins = {}
 Ins.__index = {}
