@@ -398,10 +398,10 @@ local function emit_call_expression(self, node, want, use_tail, use_self)
     if use_self then
         local obj = self:expr_toanyreg(node.receiver)
         self.ctx:op_move(free + 1, obj)
-        self.ctx:setreg(free + 1)
+        self.ctx:setreg(free + 2)
         local method_type, method = self:property_tagged(node.method.name)
         self.ctx:op_tget(free, obj, method_type, method)
-        self.ctx:nextreg()
+        self.ctx.freereg = free + 2
     else
         self:expr_tonextreg(node.callee)
     end
