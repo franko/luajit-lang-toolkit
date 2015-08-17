@@ -64,6 +64,10 @@ function ExpressionRule:Vararg()
     return "...", operator.ident_priority
 end
 
+function ExpressionRule:ExpressionValue(node)
+    return "(" .. self:expr_emit(node.value) .. ")"
+end
+
 function ExpressionRule:BinaryExpression(node)
     local oper = node.operator
     local lprio = operator.left_priority(oper)
