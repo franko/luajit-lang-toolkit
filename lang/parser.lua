@@ -74,13 +74,13 @@ end
 
 function expr_table(ast, ls)
     local line = ls.linenumber
-    local hkeys, hvals = { }, { }
-    local avals = { }
+    local kvs = {}
     lex_check(ls, '{')
     while ls.token ~= '}' do
         local key
         if ls.token == '[' then
             key = expr_bracket(ast, ls)
+            key = ast:expr_index(v, key)
             lex_check(ls, '=')
         elseif (ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto')) and ls:lookahead() == '=' then
             local name = lex_str(ls)
@@ -88,16 +88,15 @@ function expr_table(ast, ls)
             lex_check(ls, '=')
         end
         local val = expr(ast, ls)
+        local kv = { val }
         if key then
-            hkeys[#hkeys + 1] = key
-            hvals[#hvals + 1] = val
-        else
-            avals[#avals + 1] = val
-        end
+            kv[#kv + 1] = key
+        end 
+        kvs[#kvs + 1] = kv
         if not lex_opt(ls, ',') and not lex_opt(ls, ';') then break end
     end
     lex_match(ls, '}', '{', line)
-    return ast:expr_table(avals, hkeys, hvals, line)
+    return ast:expr_table(kvs, line)
 end
 
 function expr_simple(ast, ls)

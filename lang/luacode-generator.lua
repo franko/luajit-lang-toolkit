@@ -101,21 +101,24 @@ function ExpressionRule:ConcatenateExpression(node)
 end
 
 function ExpressionRule:Table(node)
-    local array = self:expr_list(node.array_entries)
     local hash = { }
-    for k = 1, #node.hash_keys do
-        local key = node.hash_keys[k]
-        local value = self:expr_emit(node.hash_values[k])
-        if is_string(key) then
-            hash[k] = format("%s = %s", key.value, value)
+    for i = 1, #node.keyvals do
+        local kv = node.keyvals[i]
+        local val = self:expr_emit(kv[1])
+        local key = kv[2]
+        if key then
+            if is_string(key) then
+                hash[i] = format("%s = %s", key.value, val)
+            else
+                hash[i] = format("[%s] = %s", self:expr_emit(key), val)
+            end
         else
-            hash[k] = format("[%s] = %s", self:expr_emit(key), value)
+            hash[i] = format("%s", val)
         end
     end
-    local content = array
+    local content = ""
     if #hash > 0 then
-        local hash_str = comma_sep_list(hash)
-        content = content ~= "" and (content .. ", " .. hash_str) or hash_str
+        content = comma_sep_list(hash)
     end
     return "{" .. content .. "}", operator.ident_priority
 end

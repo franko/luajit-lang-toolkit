@@ -91,8 +91,8 @@ function AST.set_expr_last(ast, expr)
     end
 end
 
-function AST.expr_table(ast, avals, hkeys, hvals, line)
-    return build("Table", { array_entries = avals, hash_keys = hkeys, hash_values = hvals, line = line })
+function AST.expr_table(ast, keyvals, line)
+    return build("Table", { keyvals = keyvals, line = line })
 end
 
 function AST.expr_unop(ast, op, v, line)
