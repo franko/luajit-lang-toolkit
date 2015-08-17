@@ -4,6 +4,7 @@ LuaJIT Language Toolkit usage: luajit [options]... [script [args]...].
 
 Available options are:
   -b ...    Save or list bytecode.
+  -c ...    Generate Lua code and run.
 ]]
   os.exit(1)
 end
@@ -18,28 +19,31 @@ local function check(success, result)
 end
 
 local args = {...}
+local opt = {}
 local k = 1
 while args[k] do
     local a = args[k]
-    if type(a) == "string" and string.sub(a, 1, 2) == "-b" then
-        local j = 1
-        if #a > 2 then
-            args[j] = "-" .. string.sub(a, 3)
-            j = j + 1
+    if string.sub(args[k], 1, 1) == "-" then
+        if string.sub(a, 2, 2) == "b" then
+            local j = 1
+            if #a > 2 then
+                args[j] = "-" .. string.sub(a, 3)
+                j = j + 1
+            else
+                table.remove(args, j)
+            end
+            require("lang.bcsave").start(unpack(args))
+            os.exit(0)
+        elseif string.sub(a, 2, 2) == "c" then
+            opt = { code = true }
         else
-            table.remove(args, j)
-        end
-        require("lang.bcsave").start(unpack(args))
-        os.exit(0)
-    else
-        if string.sub(args[k], 1, 1) == "-" then
             print("Invalid option: ", args[k])
-            print_usage_msg()
+            usage()
         end
+    else
         filename = args[k]
-        k = k + 1
-        if args[k] then usage() end
     end
+    k = k + 1
 end
 
 if not filename then usage() end
@@ -47,6 +51,11 @@ if not filename then usage() end
 local compile = require("lang.compile")
 
 -- Compute the bytecode string for the given filename.
-local luacode = check(compile.file(filename))
+local luacode = check(compile.file(filename, opt))
+if opt.code then
+    print(luacode)
+    print('\n\nOutput:')
+end
 local fn = assert(loadstring(luacode))
 fn()
+
