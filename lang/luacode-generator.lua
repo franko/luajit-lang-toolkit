@@ -140,7 +140,7 @@ function ExpressionRule:SendExpression(node)
 end
 
 function StatementRule:FunctionDeclaration(node)
-    self:proto_enter()
+    self:proto_enter(0)
     local name = self:expr_emit(node.id)
     local header = format("function %s(%s)", name, comma_sep_list(node.params, as_parameter))
     if node.locald then
@@ -156,7 +156,7 @@ function ExpressionRule:FunctionExpression(node)
     local header = format("function(%s)", comma_sep_list(node.params, as_parameter))
     self:add_section(header, node.body)
     local child_proto = self:proto_leave()
-    return child_proto:inline(self.proto.indent), 0
+    return child_proto:inline(), 0
 end
 
 function StatementRule:CallExpression(node)
@@ -258,13 +258,12 @@ function StatementRule:GotoStatement(node)
    self:add_line("goto " .. node.label)
 end
 
-local function proto_inline(proto, indent)
-    local ls = { }
-    for k = 1, #proto.code do
-        local indent_str = k == 1 and "" or string.rep("    ", indent)
-        ls[k] = indent_str .. proto.code[k]
+local function proto_inline(proto)
+    -- remove leading whitespaces from first line
+    if #proto.code > 0 then
+        proto.code[1] = string.gsub(proto.code[1], "^%s*", "")
     end
-    return concat(ls, "\n")
+    return concat(proto.code, "\n")
 end
 
 local function proto_merge(proto, child)
@@ -275,8 +274,14 @@ local function proto_merge(proto, child)
     end
 end
 
-local function proto_new(parent)
-    local proto = { code = { }, indent = 0, parent = parent }
+local function proto_new(parent, indent)
+    local ind = 0
+    if indent then
+        ind = indent
+    elseif parent then
+        ind = parent.indent
+    end
+    local proto = { code = { }, indent = ind, parent = parent }
     proto.inline = proto_inline
     proto.merge = proto_merge
     return proto
@@ -288,8 +293,8 @@ local function generate(tree, name)
     self.proto = proto_new()
     self.chunkname = tree.chunkname
 
-    function self:proto_enter()
-        self.proto = proto_new(self.proto)
+    function self:proto_enter(indent)
+        self.proto = proto_new(self.proto, indent)
     end
 
     function self:proto_leave()
@@ -360,7 +365,7 @@ local function generate(tree, name)
 
     self:emit(tree)
 
-    return self:proto_leave():inline(0)
+    return self:proto_leave():inline()
 end
 
 return generate
