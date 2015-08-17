@@ -5,6 +5,8 @@ LuaJIT Language Toolkit usage: luajit [options]... [script [args]...].
 Available options are:
   -b ...    Save or list bytecode.
   -c ...    Generate Lua code and run.
+            If followed by the "v" option the generated Lua code
+            will be printed.
 ]]
   os.exit(1)
 end
@@ -35,7 +37,16 @@ while args[k] do
             require("lang.bcsave").start(unpack(args))
             os.exit(0)
         elseif string.sub(a, 2, 2) == "c" then
-            opt = { code = true }
+            opt.code = true
+            local copt = string.sub(a, 3, 3)
+            if copt == "v" then
+                opt.debug = true
+            elseif copt ~= "" then
+                print("Invalid Lua code option: ", copt)
+                usage()
+            end
+        elseif string.sub(a, 2, 2) == "v" then
+            opt.debug = true
         else
             print("Invalid option: ", args[k])
             usage()
@@ -52,7 +63,7 @@ local compile = require("lang.compile")
 
 -- Compute the bytecode string for the given filename.
 local luacode = check(compile.file(filename, opt))
-if opt.code then
+if opt.debug then
     print(luacode)
     print('\n\nOutput:')
 end
