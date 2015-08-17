@@ -23,7 +23,7 @@ end
 
 local function compile(reader, filename, options)
     local generator
-    if options.code then
+    if options and options.code then
         generator = require('lang.luacode-generator')
     else
         generator = require('lang.generator')
