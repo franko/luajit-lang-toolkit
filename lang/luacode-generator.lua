@@ -8,6 +8,30 @@
 
 local operator = require("lang.operator")
 
+local strbyte, strsub = string.byte, string.sub
+
+local LuaReservedKeyword = {['and'] = 1, ['break'] = 2, ['do'] = 3, ['else'] = 4, ['elseif'] = 5, ['end'] = 6, ['false'] = 7, ['for'] = 8, ['function'] = 9, ['goto'] = 10, ['if'] = 11, ['in'] = 12, ['local'] = 13, ['nil'] = 14, ['not'] = 15, ['or'] = 16, ['repeat'] = 17, ['return'] = 18, ['then'] = 19, ['true'] = 20, ['until'] = 21, ['while'] = 22 }
+
+local ASCII_0, ASCII_9 = 48, 57
+local ASCII_a, ASCII_z = 97, 122
+local ASCII_A, ASCII_Z = 65, 90
+
+local function char_isletter(c)
+    local b = strbyte(c)
+    if b >= ASCII_a and b <= ASCII_z then
+        return true
+    elseif b >= ASCII_A and b <= ASCII_Z then
+        return true
+    else
+        return (c == '_')
+    end
+end
+
+local function char_isdigit(c)
+    local b = strbyte(c)
+    return b >= ASCII_0 and b <= ASCII_9
+end
+
 local StatementRule = { }
 local ExpressionRule = { }
 
@@ -20,6 +44,20 @@ end
 
 local function is_const(node, val)
     return node.kind == "Literal" and node.value == val
+end
+
+local function string_is_ident(str)
+    local c = strsub(str, 1, 1)
+    if c == '' or not char_isletter(c) then
+        return false
+    end
+    for k = 2, #str do
+        c = strsub(str, k, k)
+        if not char_isletter(c) and not char_isdigit(c) then
+            return false
+        end
+    end
+    return not LuaReservedKeyword[str]
 end
 
 local function comma_sep_list(ls, f)
@@ -107,7 +145,7 @@ function ExpressionRule:Table(node)
         local val = self:expr_emit(kv[1])
         local key = kv[2]
         if key then
-            if is_string(key) then
+            if is_string(key) and string_is_ident(key.value) then
                 hash[i] = format("%s = %s", key.value, val)
             else
                 hash[i] = format("[%s] = %s", self:expr_emit(key), val)
