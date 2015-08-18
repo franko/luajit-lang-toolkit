@@ -48,14 +48,20 @@ function ExpressionRule:Literal(node)
 end
 
 function ExpressionRule:MemberExpression(node)
-    local object, prio = self:expr_emit(node.object)
-    if prio < operator.ident_priority then object = "(" .. object .. ")" end
     local exp
-    if node.computed then
-        local prop = self:expr_emit(node.property)
-        exp = format("%s[%s]", object, prop)
+    if node.object then
+        local object, prio = self:expr_emit(node.object)
+        if prio < operator.ident_priority then object = "(" .. object .. ")" end
+        
+        if node.computed then
+            local prop = self:expr_emit(node.property)
+            exp = format("%s[%s]", object, prop)
+        else
+            exp = format("%s.%s", object, node.property.name)
+        end
     else
-        exp = format("%s.%s", object, node.property.name)
+        local prop = node.property.name or self:expr_emit(node.property)
+        exp = format("%s", prop)
     end
     return exp, operator.ident_priority
 end
