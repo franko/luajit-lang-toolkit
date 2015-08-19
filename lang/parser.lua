@@ -87,11 +87,7 @@ function expr_table(ast, ls)
             lex_check(ls, '=')
         end
         local val = expr(ast, ls)
-        local kv = { val }
-        if key then
-            kv[#kv + 1] = key
-        end 
-        kvs[#kvs + 1] = kv
+        kvs[#kvs + 1] = { val, key } -- "key" can be nil.
         if not lex_opt(ls, ',') and not lex_opt(ls, ';') then break end
     end
     lex_match(ls, '}', '{', line)
