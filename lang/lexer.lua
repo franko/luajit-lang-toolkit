@@ -363,6 +363,12 @@ local function read_string(ls, delim)
     return get_string(ls, 1, 1)
 end
 
+local function skip_line(ls)
+    while not curr_is_newline(ls) and ls.current ~= END_OF_STREAM do
+        savespace_and_next(ls)
+    end
+end
+
 local function llex(ls)
     resetbuf(ls)
     while true do
@@ -399,10 +405,11 @@ local function llex(ls)
                 if sep >= 0 then
                     read_long_string(ls, sep, false) -- long comment
                     resetbuf_tospace(ls)
+                else
+                    skip_line(ls)
                 end
-            end
-            while not curr_is_newline(ls) and ls.current ~= END_OF_STREAM do
-                savespace_and_next(ls)
+            else
+                skip_line(ls)
             end
         elseif current == '[' then
             local sep = skip_sep(ls)
