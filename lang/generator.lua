@@ -187,7 +187,7 @@ local function is_kint(x)
 end
 
 function ExpressionRule:Table(node, dest)
-    if #node.array_entries == 0 and #node.hash_keys == 0 then
+    if #node.keyvals == 0 then
         self.ctx:op_tnew(dest, 0, 0)
         return
     end
@@ -198,60 +198,66 @@ function ExpressionRule:Table(node, dest)
     local t
     local vtop = self.ctx.freereg
     local narray, nhash = 0, 0
+    local na, nh = 0, 0
     local zeroarr = 0
-    for k = 1, #node.array_entries do
-        local expr = node.array_entries[k]
-        local is_const, expr_val = expr_isk(self, expr)
-        if is_const then
-            if not t then t = emit_tdup(self, free, ins) end
-            t.array[k] = expr_val
-            narray = k + 1
-        elseif is_vcall(expr) and k == #node.array_entries then
-            self:expr_tomultireg(expr, MULTIRES)
-            self.ctx:op_tsetm(free, k)
-        else
-            local ktag, kval
-            if k < 256 then
-                ktag, kval = 'B', k
+    for k = 1, #node.keyvals do
+        local kv = node.keyvals[k]
+        local value, key = kv[1], kv[2]
+        if key then
+            local k_is_const, kval = expr_isk(self, key)
+            local v_is_const, vval = expr_isk(self, value)
+            if k_is_const and kval ~= nil and v_is_const then
+                if type(kval) == "number" and is_kint(kval) then
+                    if not t then t = emit_tdup(self, free, ins) end
+                    t.array[kval] = vval
+                    narray = math.max(narray, kval + 1)
+                    if kval == 0 then -- Zero-indexed array term.
+                        zeroarr = 1
+                    end
+                else
+                    nhash = nhash + 1
+                    if not t then t = emit_tdup(self, free, ins) end
+                    -- NB: Adopt the "keyvals" style instead of hash_keys/values.
+                    t.hash_keys[nhash] = kval
+                    t.hash_values[nhash] = vval
+                end
             else
-                ktag, kval = 'V', self.ctx:nextreg()
-                self.ctx:op_load(kval, k)
+                local ktag, kval = self:expr_toanyreg_tagged(key, EXPR_EMIT_VSB)
+                local v = self:expr_toanyreg(value)
+                self.ctx:op_tset(free, ktag, kval, v)
+                self.ctx.freereg = vtop
             end
-            local v = self:expr_toanyreg(expr)
-            self.ctx:op_tset(free, ktag, kval, v)
-            self.ctx.freereg = vtop
-        end
-    end
-
-    for i = 1, #node.hash_keys do
-        local key, value = node.hash_keys[i], node.hash_values[i]
-        local k_is_const, kval = expr_isk(self, key)
-        local v_is_const, vval = expr_isk(self, value)
-        if k_is_const and kval ~= nil and v_is_const then
-            if type(kval) == "number" and is_kint(kval) then
-                if not t then t = emit_tdup(self, free, ins) end
-                t.array[kval] = vval
-                narray = math.max(narray, kval + 1)
-                if kval == 0 then zeroarr = 1 end
-            else
-                nhash = nhash + 1
-                if not t then t = emit_tdup(self, free, ins) end
-                t.hash_keys[nhash] = kval
-                t.hash_values[nhash] = vval
-            end
+            nh = nh + 1
         else
-            local ktag, kval = self:expr_toanyreg_tagged(key, EXPR_EMIT_VSB)
-            local v = self:expr_toanyreg(value)
-            self.ctx:op_tset(free, ktag, kval, v)
-            self.ctx.freereg = vtop
+            na = na + 1
+            local is_const, expr_val = expr_isk(self, value)
+            if is_const then
+                if not t then t = emit_tdup(self, free, ins) end
+                t.array[na] = expr_val
+                narray = na + 1
+            elseif is_vcall(value) and na == #node.keyvals then
+                self:expr_tomultireg(value, MULTIRES)
+                self.ctx:op_tsetm(free, na)
+            else
+                local ktag, kval
+                if na < 256 then
+                    ktag, kval = 'B', na
+                else
+                    ktag, kval = 'V', self.ctx:nextreg()
+                    self.ctx:op_load(kval, na)
+                end
+                local v = self:expr_toanyreg(value)
+                self.ctx:op_tset(free, ktag, kval, v)
+                self.ctx.freereg = vtop
+            end
         end
     end
 
     if t then
         t.narray, t.nhash = narray, nhash
     else
-        local na = #node.array_entries + zeroarr
-        local nh = #node.hash_keys - zeroarr
+        na = na + zeroarr
+        nh = nh - zeroarr
         local sz = ins.tnewsize(na > 0 and na or nil, nh)
         ins:rewrite(BC.TNEW, free, sz)
     end

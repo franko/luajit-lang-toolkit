@@ -8,6 +8,30 @@
 
 local operator = require("lang.operator")
 
+local strbyte, strsub = string.byte, string.sub
+
+local LuaReservedKeyword = {['and'] = 1, ['break'] = 2, ['do'] = 3, ['else'] = 4, ['elseif'] = 5, ['end'] = 6, ['false'] = 7, ['for'] = 8, ['function'] = 9, ['goto'] = 10, ['if'] = 11, ['in'] = 12, ['local'] = 13, ['nil'] = 14, ['not'] = 15, ['or'] = 16, ['repeat'] = 17, ['return'] = 18, ['then'] = 19, ['true'] = 20, ['until'] = 21, ['while'] = 22 }
+
+local ASCII_0, ASCII_9 = 48, 57
+local ASCII_a, ASCII_z = 97, 122
+local ASCII_A, ASCII_Z = 65, 90
+
+local function char_isletter(c)
+    local b = strbyte(c)
+    if b >= ASCII_a and b <= ASCII_z then
+        return true
+    elseif b >= ASCII_A and b <= ASCII_Z then
+        return true
+    else
+        return (c == '_')
+    end
+end
+
+local function char_isdigit(c)
+    local b = strbyte(c)
+    return b >= ASCII_0 and b <= ASCII_9
+end
+
 local StatementRule = { }
 local ExpressionRule = { }
 
@@ -20,6 +44,20 @@ end
 
 local function is_const(node, val)
     return node.kind == "Literal" and node.value == val
+end
+
+local function string_is_ident(str)
+    local c = strsub(str, 1, 1)
+    if c == '' or not char_isletter(c) then
+        return false
+    end
+    for k = 2, #str do
+        c = strsub(str, k, k)
+        if not char_isletter(c) and not char_isdigit(c) then
+            return false
+        end
+    end
+    return not LuaReservedKeyword[str]
 end
 
 local function comma_sep_list(ls, f)
@@ -64,6 +102,10 @@ function ExpressionRule:Vararg()
     return "...", operator.ident_priority
 end
 
+function ExpressionRule:ExpressionValue(node)
+    return "(" .. self:expr_emit(node.value) .. ")"
+end
+
 function ExpressionRule:BinaryExpression(node)
     local oper = node.operator
     local lprio = operator.left_priority(oper)
@@ -81,7 +123,7 @@ function ExpressionRule:UnaryExpression(node)
     local arg, arg_prio = self:expr_emit(node.argument)
     local op_prio = operator.unary_priority
     if arg_prio < op_prio then arg = format("(%s)", arg) end
-    return format("%s%s", node.operator, arg), operator.unary_priority
+    return format("%s %s", node.operator, arg), operator.unary_priority
 end
 
 ExpressionRule.LogicalExpression = ExpressionRule.BinaryExpression
@@ -97,21 +139,24 @@ function ExpressionRule:ConcatenateExpression(node)
 end
 
 function ExpressionRule:Table(node)
-    local array = self:expr_list(node.array_entries)
     local hash = { }
-    for k = 1, #node.hash_keys do
-        local key = node.hash_keys[k]
-        local value = self:expr_emit(node.hash_values[k])
-        if is_string(key) then
-            hash[k] = format("%s = %s", key.value, value)
+    for i = 1, #node.keyvals do
+        local kv = node.keyvals[i]
+        local val = self:expr_emit(kv[1])
+        local key = kv[2]
+        if key then
+            if is_string(key) and string_is_ident(key.value) then
+                hash[i] = format("%s = %s", key.value, val)
+            else
+                hash[i] = format("[%s] = %s", self:expr_emit(key), val)
+            end
         else
-            hash[k] = format("[%s] = %s", self:expr_emit(key), value)
+            hash[i] = format("%s", val)
         end
     end
-    local content = array
+    local content = ""
     if #hash > 0 then
-        local hash_str = comma_sep_list(hash)
-        content = content ~= "" and (content .. ", " .. hash_str) or hash_str
+        content = comma_sep_list(hash)
     end
     return "{" .. content .. "}", operator.ident_priority
 end
@@ -136,7 +181,7 @@ function ExpressionRule:SendExpression(node)
 end
 
 function StatementRule:FunctionDeclaration(node)
-    self:proto_enter()
+    self:proto_enter(0)
     local name = self:expr_emit(node.id)
     local header = format("function %s(%s)", name, comma_sep_list(node.params, as_parameter))
     if node.locald then
@@ -152,7 +197,7 @@ function ExpressionRule:FunctionExpression(node)
     local header = format("function(%s)", comma_sep_list(node.params, as_parameter))
     self:add_section(header, node.body)
     local child_proto = self:proto_leave()
-    return child_proto:inline(self.proto.indent), 0
+    return child_proto:inline(), 0
 end
 
 function StatementRule:CallExpression(node)
@@ -254,13 +299,12 @@ function StatementRule:GotoStatement(node)
    self:add_line("goto " .. node.label)
 end
 
-local function proto_inline(proto, indent)
-    local ls = { }
-    for k = 1, #proto.code do
-        local indent_str = k == 1 and "" or string.rep("    ", indent)
-        ls[k] = indent_str .. proto.code[k]
+local function proto_inline(proto)
+    -- remove leading whitespaces from first line
+    if #proto.code > 0 then
+        proto.code[1] = string.gsub(proto.code[1], "^%s*", "")
     end
-    return concat(ls, "\n")
+    return concat(proto.code, "\n")
 end
 
 local function proto_merge(proto, child)
@@ -271,8 +315,14 @@ local function proto_merge(proto, child)
     end
 end
 
-local function proto_new(parent)
-    local proto = { code = { }, indent = 0, parent = parent }
+local function proto_new(parent, indent)
+    local ind = 0
+    if indent then
+        ind = indent
+    elseif parent then
+        ind = parent.indent
+    end
+    local proto = { code = { }, indent = ind, parent = parent }
     proto.inline = proto_inline
     proto.merge = proto_merge
     return proto
@@ -284,8 +334,8 @@ local function generate(tree, name)
     self.proto = proto_new()
     self.chunkname = tree.chunkname
 
-    function self:proto_enter()
-        self.proto = proto_new(self.proto)
+    function self:proto_enter(indent)
+        self.proto = proto_new(self.proto, indent)
     end
 
     function self:proto_leave()
@@ -356,7 +406,7 @@ local function generate(tree, name)
 
     self:emit(tree)
 
-    return self:proto_leave():inline(0)
+    return self:proto_leave():inline()
 end
 
 return generate
