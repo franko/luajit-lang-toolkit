@@ -80,7 +80,6 @@ function expr_table(ast, ls)
         local key
         if ls.token == '[' then
             key = expr_bracket(ast, ls)
-            key = ast:expr_index(v, key)
             lex_check(ls, '=')
         elseif (ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto')) and ls:lookahead() == '=' then
             local name = lex_str(ls)
