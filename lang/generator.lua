@@ -235,7 +235,7 @@ function ExpressionRule:Table(node, dest)
                 if not t then t = emit_tdup(self, free, ins) end
                 t.array[na] = expr_val
                 narray = na + 1
-            elseif is_vcall(value) and na == #node.keyvals then
+            elseif is_vcall(value) and k == #node.keyvals then
                 self:expr_tomultireg(value, MULTIRES)
                 self.ctx:op_tsetm(free, na)
             else
