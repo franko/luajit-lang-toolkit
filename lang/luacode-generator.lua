@@ -46,6 +46,11 @@ local function is_const(node, val)
     return node.kind == "Literal" and node.value == val
 end
 
+local function is_literal(node)
+    local k = node.kind
+    return (k == "Literal" or k == "Table")
+end
+
 local function string_is_ident(str)
     local c = strsub(str, 1, 1)
     if c == '' or not char_isletter(c) then
@@ -87,7 +92,9 @@ end
 
 function ExpressionRule:MemberExpression(node)
     local object, prio = self:expr_emit(node.object)
-    if prio < operator.ident_priority then object = "(" .. object .. ")" end
+    if prio < operator.ident_priority or is_literal(node.object) then
+        object = "(" .. object .. ")"
+    end
     local exp
     if node.computed then
         local prop = self:expr_emit(node.property)
@@ -172,7 +179,7 @@ end
 
 function ExpressionRule:SendExpression(node)
     local rec, prio = self:expr_emit(node.receiver)
-    if prio < operator.ident_priority then
+    if prio < operator.ident_priority or is_literal(node.receiver) then
         rec = "(" .. rec .. ")"
     end
     local method = node.method.name
