@@ -32,6 +32,18 @@ local function char_isdigit(c)
     return b >= ASCII_0 and b <= ASCII_9
 end
 
+local function replace_cc(c)
+    local esc = {
+        ['\a'] = [[\a]], ['\b'] = [[\b]], ['\f'] = [[\f]], ['\n'] = [[\n]], ['\r'] = [[\r]], ['\t'] = [[\t]], ['\v'] = [[\v]]
+    }
+    return esc[c] and esc[c] or ('\\' .. string.format("%d", string.byte(c)))
+end
+
+local function escape(s)
+    s = string.gsub(s, "[\"\\]", "\\%1")
+    return string.gsub(s, "%c", replace_cc)
+end
+
 local StatementRule = { }
 local ExpressionRule = { }
 
@@ -86,7 +98,7 @@ end
 
 function ExpressionRule:Literal(node)
     local val = node.value
-    local str = type(val) == "string" and format("%q", val) or tostring(val)
+    local str = type(val) == "string" and format("\"%s\"", escape(val)) or tostring(val)
     return str, operator.ident_priority
 end
 
