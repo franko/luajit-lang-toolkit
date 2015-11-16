@@ -101,7 +101,7 @@ local syntax = {
       properties = {
          operator = {
             type   = "enum",
-            values = { "not", "-", "#", "'" },
+            values = { "not", "-", "#" },
          },
          argument = "Expression",
       }
@@ -371,7 +371,7 @@ local syntax = {
       properties = {
          id = {
             type = "choice",
-            values = { "MemberExpression", "Identifier"},
+            values = { "MemberExpression", "Identifier" },
          },
          body = {
             type = "list",
@@ -444,13 +444,13 @@ local function kind2str(spec)
       return "list of " .. etype
    elseif spec.type == "enum" then
       local ls = {}
-      for i = 1, spec.values do ls[i] = spec.values[i] end
+      for i = 1, #spec.values do ls[i] = spec.values[i] end
       return table.concat(ls, ", ")
    elseif spec.type == "literal" then
       return "literal " .. spec.value
    elseif spec.type == "choice" then
       local ls = {}
-      for i = 1, spec.values do ls[i] = kind2str(spec.values[i]) end
+      for i = 1, #spec.values do ls[i] = kind2str(spec.values[i]) end
       return table.concat(ls, "|")
    else
       error("internal error: invalid spec type")
@@ -475,7 +475,10 @@ local function check_list(spec, prop)
       return false, "expected list of "..kind2str(spec.kind).." (got node)"
    end
    for i=1, #prop do
-      check(spec.kind, prop[i])
+      local ok, err = check(spec.kind, prop[i])
+      if not ok then
+         return false, err.." (got "..prop[i].kind..")"
+      end
    end
    return true
 end
@@ -501,6 +504,7 @@ local function check_choice(spec, prop)
          return true
       end
    end
+   return false, "expected one of "..kind2str(spec).." (got '"..tostring(prop).."')"
 end
 
 function check(spec, prop)
@@ -522,6 +526,9 @@ function check(spec, prop)
 end
 
 local function validate(meta, node)
+   if meta == nil then
+      error("unknown node kind: "..node.kind)
+   end
    for name, spec in pairs(meta.properties) do
       if node[name] == nil and type(spec.default) ~= 'nil' then
          node[name] = spec.default

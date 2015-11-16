@@ -2,7 +2,6 @@ local operator = require("lang.operator")
 
 local LJ_52 = false
 
-local IsLastStatement = { TK_return = true, TK_break  = true }
 local EndOfBlock = { TK_else = true, TK_elseif = true, TK_end = true, TK_until = true, TK_eof = true }
 
 local function err_syntax(ls, em)
@@ -506,7 +505,7 @@ local function new_proto(ls, varargs)
     return { varargs = varargs }
 end
 
-function parse_block_stmts(ast, ls)
+local function parse_block_stmts(ast, ls)
     local firstline = ls.linenumber
     local stmt, islast = nil, false
     local body = { }
@@ -554,7 +553,6 @@ local function parse(ast, ls)
     ls:next()
     ls.fs = new_proto(ls, true)
     ast:fscope_begin()
-    local args = { ast:expr_vararg(ast) }
     local chunk = parse_chunk(ast, ls)
     ast:fscope_end()
     if ls.token ~= 'TK_eof' then
