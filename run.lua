@@ -20,6 +20,8 @@ local function check(success, result)
     end
 end
 
+local filename
+
 local args = {...}
 local opt = {}
 local k = 1
