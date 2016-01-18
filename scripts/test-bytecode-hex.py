@@ -29,8 +29,12 @@ def do_process_output(cmd):
 	sf.close()
 	return s
 
+def source_fullname_ref(fullname):
+    fullname_alias = re.sub(r'\.lua$', '.alias.lua', fullname)
+    return fullname_alias if os.path.isfile(fullname_alias) else fullname
+
 def expected_bytecode(name, fullname):
-	subprocess.check_call([luajit_exec, "-bg", fullname, ".out.raw"])
+	subprocess.check_call([luajit_exec, "-bg", source_fullname_ref(fullname), ".out.raw"])
 	s = do_process_output([luajit_x, "-bx", ".out.raw"])
 	yield s, "luajit"
 	expect_dir = os.path.join("tests", "expect_hex")
