@@ -70,8 +70,13 @@ def do_process_output(cmd):
 	sf.close()
 	return s
 
+def source_fullname_ref(fullname):
+    fullname_alias = re.sub(r'\.lua$', '.alias.lua', fullname)
+    return fullname_alias if os.path.isfile(fullname_alias) else fullname
+
 def expected_bytecode(name, fullname):
-	s = do_process_output([luajit_exec, "-bl", fullname])
+	s = do_process_output([luajit_exec, "-bl", source_fullname_ref(fullname)])
+	s = re.sub(r'\.alias\.lua([^a-z])', r'.lua\1', s)
 	yield s, "luajit"
 	expect_dir = os.path.join("tests", "expect")
 	for expect_filename in glob(os.path.join(expect_dir, "*.txt")):
