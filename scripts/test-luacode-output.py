@@ -21,6 +21,10 @@ except:
 	print "Please make sure that luajit executable is in the current PATH."
 	sys.exit(1)
 
+def source_fullname_ref(fullname):
+    fullname_alias = re.sub(r'\.lua$', '.alias.lua', fullname)
+    return fullname_alias if os.path.isfile(fullname_alias) else fullname
+
 for dirpath, dirnames, filenames in os.walk(test_dir):
     for filename in sorted(filenames):
         m = re.match(r'([^.]+)\.lua$', filename)
@@ -33,7 +37,7 @@ for dirpath, dirnames, filenames in os.walk(test_dir):
                 out_tst = subprocess.check_output([luajit_exec, "run.lua", "-c", fullname])
             except subprocess.CalledProcessError:
                 run_error = True
-            out_ref = subprocess.check_output([luajit_exec, fullname])
+            out_ref = subprocess.check_output([luajit_exec, source_fullname_ref(fullname)])
             led, msg = None, None
             if run_error:
                 led, msg = "*", "fail to run"
