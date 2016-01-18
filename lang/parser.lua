@@ -118,6 +118,9 @@ function expr_simple(ast, ls)
         ls:next()
         local args, body, proto = parse_body(ast, ls, ls.linenumber, false)
         return ast:expr_function(args, body, proto)
+    elseif tk == '|' then
+        local args, body, proto = parse_simple_body(ast, ls, ls.linenumber)
+        return ast:expr_function(args, body, proto)
     else
         return expr_primary(ast, ls)
     end
@@ -477,13 +480,13 @@ local function parse_stmt(ast, ls)
     return stmt, false
 end
 
-local function parse_params(ast, ls, needself)
-    lex_check(ls, "(")
+local function parse_params_delim(ast, ls, needself, start_token, end_token)
+    lex_check(ls, start_token)
     local args = { }
     if needself then
         args[1] = ast:var_declare("self")
     end
-    if ls.token ~= ")" then
+    if ls.token ~= end_token then
         repeat
             if ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto') then
                 local name = lex_str(ls)
@@ -498,8 +501,12 @@ local function parse_params(ast, ls, needself)
             end
         until not lex_opt(ls, ',')
     end
-    lex_check(ls, ")")
+    lex_check(ls, end_token)
     return args
+end
+
+local function parse_params(ast, ls, needself)
+    return parse_params_delim(ast, ls, needself, '(', ')')
 end
 
 local function new_proto(ls, varargs)
@@ -538,6 +545,23 @@ function parse_body(ast, ls, line, needself)
     end
     ls.fs.lastline = ls.linenumber
     ls:next()
+    ls.fs = pfs
+    return args, body, proto
+end
+
+function parse_simple_body(ast, ls, line)
+    local pfs = ls.fs
+    ls.fs = new_proto(ls, false)
+    ast:fscope_begin()
+    ls.fs.firstline = line
+    local args = parse_params_delim(ast, ls, false, '|', '|')
+    ls.fs.lastline = ls.linenumber
+    local exp = expr(ast, ls)
+    local ret_stmt = ast:return_stmt({ exp }, line)
+    local body = { ret_stmt }
+    ast:fscope_end()
+    local proto = ls.fs
+    ls.fs.has_return = true
     ls.fs = pfs
     return args, body, proto
 end
