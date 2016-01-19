@@ -52,7 +52,7 @@ end
 
 local expr_primary, expr, expr_unop, expr_binop, expr_simple
 local expr_list, expr_table
-local parse_body, parse_block, parse_args
+local parse_body, parse_simple_body, parse_block, parse_args
 
 local function var_lookup(ast, ls)
     local name = lex_str(ls)
