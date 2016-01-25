@@ -24,6 +24,10 @@
 #include "language.h"
 #include "language_loaders.h"
 
+#ifdef BC_PRELOAD
+#include "language_bcloader.h"
+#endif
+
 #if defined(__linux__)
 #include <unistd.h>
 #define lua_stdin_is_tty()  isatty(0)
@@ -310,6 +314,9 @@ static int loadlangmodule(lua_State *L)
 static int dobytecode(lua_State *L, char **argv)
 {
   int narg = 0;
+#ifdef BC_PRELOAD
+  language_bc_preload(L);
+#endif
   lua_pushliteral(L, "bcsave");
   if (loadlangmodule(L))
     return 1;

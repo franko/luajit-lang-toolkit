@@ -9,6 +9,10 @@
 #include "lualib.h"
 #include "language.h"
 
+#ifdef BC_PRELOAD
+#include "language_bcloader.h"
+#endif
+
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
@@ -43,6 +47,9 @@ language_init(lua_State *L) {
         return LUA_ERRRUN;
     }
     luaL_openlibs(parser_L);
+#ifdef BC_PRELOAD
+    language_bc_preload(parser_L);
+#endif
 
     lua_getglobal(parser_L, "require");
     lua_pushstring(parser_L, "lang.compile");
