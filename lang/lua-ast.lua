@@ -7,6 +7,10 @@ local function ident(name, line)
     return build("Identifier", { name = name, line = line })
 end
 
+local function field(obj, name, line)
+    return build("MemberExpression", { object = obj, property = ident(name), computed = false, line = line })
+end
+
 local function does_multi_return(expr)
     local k = expr.kind
     return k == "CallExpression" or k == "SendExpression" or k == "Vararg"
@@ -133,8 +137,22 @@ function AST.expr_method_call(ast, v, key, args, line)
     return build("SendExpression", { receiver = v, method = m, arguments = args, line = line })
 end
 
-function AST.expr_function_call(ast, v, args, line)
-    return build("CallExpression", { callee = v, arguments = args, line = line })
+function AST.expr_function_call(ast, v, args, kwvars, kwvalues, line)
+    if kwvars then
+        local keyvals = {}
+        for i = 1, #kwvars do
+            keyvals[i] = { kwvalues[i], kwvars[i] }
+        end
+        local t = build("Table", { keyvals = keyvals, line = line })
+        local ext_args = { t }
+        for i = 1, #args do
+            ext_args[i+1] = args[i]
+        end
+        local kw_callee = field(v, "__kwargs", line)
+        return build("CallExpression", { callee = kw_callee, arguments = ext_args, line = line })
+    else
+        return build("CallExpression", { callee = v, arguments = args, line = line })
+    end
 end
 
 function AST.return_stmt(ast, exps, line)
