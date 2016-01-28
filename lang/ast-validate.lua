@@ -216,6 +216,16 @@ local syntax = {
          }
       }
    },
+   StatementsGroup = {
+       kind = "StatementsGroup",
+       base = "Statement",
+       properties = {
+           statements = {
+               type = "list",
+               kind = "Statement",
+           }
+       }
+   },
    EmptyStatement = {
       kind = "EmptyStatement",
       base = "Statement",
