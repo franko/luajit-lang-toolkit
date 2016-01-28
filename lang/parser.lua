@@ -116,7 +116,6 @@ function expr_simple(ast, ls)
     elseif tk == 'TK_function' then
         ls:next()
         local args, body, proto = parse_body(ast, ls, ls.linenumber, false, true)
-        print(">> parser creating literal function", args.kwargs)
         return ast:expr_function(args, body, proto)
     elseif tk == '|' then
         local args, body, proto = parse_simple_body(ast, ls, ls.linenumber)
@@ -358,6 +357,7 @@ local function parse_local(ast, ls)
     if lex_opt(ls, 'TK_function') then -- Local function declaration.
         local name = lex_str(ls)
         local args, body, proto = parse_body(ast, ls, line, false, true)
+        print(">> parser creating local function declaration", args.kwargs)
         return ast:local_function_decl(name, args, body, proto)
     else -- Local variable declaration.
         local vl = { }
