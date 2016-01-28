@@ -7,6 +7,10 @@ local function ident(name, line)
     return build("Identifier", { name = name, line = line })
 end
 
+local function literal(value, line)
+    return build("Literal", { value = value, line = line })
+end
+
 local function field(obj, name, line)
     return build("MemberExpression", { object = obj, property = ident(name), computed = false, line = line })
 end
@@ -35,8 +39,46 @@ local function func_expr(body, params, vararg, firstline, lastline)
     return build("FunctionExpression", { body = body, params = params, vararg = vararg, firstline = firstline, lastline = lastline })
 end
 
+local function func_expr_keywords(body, args, kwargs, vararg, firstline, lastline)
+    local kwdefaults = build("Table", { keyvals = kwargs, line = firstline })
+
+    local naked_func_args = { ident("__kwargs") }
+    for i = 1, #args do
+        naked_func_args[i+1] = args[i] -- Alias AST node object.
+    end
+
+    local kwids, kwvalues = {}, {}
+    for i = 1, #kwargs do
+        local kwname = kwargs[i][2].value
+        kwids[i] = ident(kwname)
+        kwvalues[i] = field(ident("__kwargs"), kwname, firstline)
+    end
+    local kw_vars_local_decl = build("LocalDeclaration", { names = kwids, expressions = kwvalues, line = firstline })
+
+    table.insert(body, 1, kw_vars_local_decl) -- Insert kw local variable declarations into function body.
+    local naked_func = func_expr(body, naked_func_args, vararg, firstline, lastline)
+
+    local fallback_args = { ident("__kwdefaults") }
+    for i = 1, #args do
+        fallback_args[i+1] = args[i] -- Alias AST node object.
+    end
+    local fallback_call = build("CallExpression", { callee = ident("__fallback"), arguments = fallback_args, line = firstline })
+    local fallback_func_body = { build("ReturnStatement", { arguments = { fallback_call }, line = firstline }) }
+    local fallback_func = func_expr(fallback_func_body, args, vararg, firstline, lastline)
+
+    local obj_table = build("Table", { keyvals = { { ident("__fallback"), literal("__kwcall") } }, line = firstline })
+    local obj_meta = build("Table", { keyvals = { { ident("__naked"), literal("__call") } }, line = firstline })
+    local DEBUG_TABLE = build("Table", { keyvals = { { kwdefaults, literal("__kwdefaults") }, { fallback_func, literal("__fallback") }, { naked_func, literal("__naked") } }, line = firstline })
+    return build("CallExpression", { callee = ident("setmetatable"), arguments = { obj_table, obj_meta, DEBUG_TABLE }, line = firstline })
+end
+
 function AST.expr_function(ast, args, body, proto)
-   return func_expr(body, args, proto.varargs, proto.firstline, proto.lastline)
+    if args.kwargs then
+        print(">> expr_function: keyword arguments")
+        return func_expr_keywords(body, args, args.kwargs, proto.varargs, proto.firstline, proto.lastline)
+    else
+        return func_expr(body, args, proto.varargs, proto.firstline, proto.lastline)
+    end
 end
 
 function AST.local_function_decl(ast, name, args, body, proto)
@@ -137,18 +179,14 @@ function AST.expr_method_call(ast, v, key, args, line)
     return build("SendExpression", { receiver = v, method = m, arguments = args, line = line })
 end
 
-function AST.expr_function_call(ast, v, args, kwvars, kwvalues, line)
-    if kwvars then
-        local keyvals = {}
-        for i = 1, #kwvars do
-            keyvals[i] = { kwvalues[i], kwvars[i] }
-        end
-        local t = build("Table", { keyvals = keyvals, line = line })
-        local ext_args = { t }
+function AST.expr_function_call(ast, v, args, kwargs, line)
+    if kwargs then
+        local kwt = build("Table", { keyvals = kwargs, line = line })
+        local ext_args = { kwt }
         for i = 1, #args do
             ext_args[i+1] = args[i]
         end
-        local kw_callee = field(v, "__kwargs", line)
+        local kw_callee = field(v, "__kwcall", line)
         return build("CallExpression", { callee = kw_callee, arguments = ext_args, line = line })
     else
         return build("CallExpression", { callee = v, arguments = args, line = line })

@@ -116,6 +116,7 @@ function expr_simple(ast, ls)
     elseif tk == 'TK_function' then
         ls:next()
         local args, body, proto = parse_body(ast, ls, ls.linenumber, false, true)
+        print(">> parser creating literal function", args.kwargs)
         return ast:expr_function(args, body, proto)
     elseif tk == '|' then
         local args, body, proto = parse_simple_body(ast, ls, ls.linenumber)
@@ -197,8 +198,9 @@ function expr_primary(ast, ls)
             local args = parse_args(ast, ls, false)
             vk, v = 'call', ast:expr_method_call(v, key, args, line)
         elseif ls.token == '(' or ls.token == 'TK_string' or ls.token == '{' then
-            local args, kws, kvs = parse_args(ast, ls, true)
-            vk, v = 'call', ast:expr_function_call(v, args, kws, kvs, line)
+            local args, kwargs = parse_args(ast, ls, true)
+            print(">> arguments", kwargs)
+            vk, v = 'call', ast:expr_function_call(v, args, kwargs, line)
         else
             break
         end
@@ -281,11 +283,22 @@ local function parse_repeat(ast, ls, line)
     return ast:repeat_stmt(cond, body, line, lastline)
 end
 
+local function expr_keyword(ast, ls, accept_keywords)
+    local kw, val
+    if ls.token == "TK_name" and accept_keywords and ls:lookahead() == '=' then
+        local name = lex_str(ls)
+        kw = ast:literal(name)
+        lex_check(ls, '=')
+    end
+    val = expr(ast, ls)
+    return val, kw
+end
+
 -- Parse function argument list.
-function parse_args(ast, ls)
+function parse_args(ast, ls, accept_keywords)
     local line = ls.linenumber
     local args = { }
-    local kws, kvs
+    local kwargs
     if ls.token == '(' then
         if not LJ_52 and line ~= ls.lastline then
             err_syntax(ls, "ambiguous syntax (function call x new statement)")
@@ -294,9 +307,8 @@ function parse_args(ast, ls)
         while ls.token ~= ')' do
             local val, kw = expr_keyword(ast, ls, accept_keywords)
             if kw then
-                if not kws then kws, kvs = {}, {} end
-                kws[#kws+1] = kw
-                kvs[#kvs+1] = val
+                if not kwargs then kwargs = {} end
+                kwargs[#kwargs+1] = { val, kw }
             else
                 args[#args+1] = val
             end
@@ -313,7 +325,7 @@ function parse_args(ast, ls)
     else
         err_syntax(ls, "function arguments expected")
     end
-    return args, kws, kvs
+    return args, kwargs
 end
 
 local function parse_assignment(ast, ls, vlist, var, vk)
@@ -498,9 +510,10 @@ local function parse_params_delim(ast, ls, needself, accept_keywords, start_toke
             if ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto') then
                 local name = lex_str(ls)
                 if accept_keywords and lex_opt(ls, '=') then
-                    local arg_expr = expr(ast, ls)
+                    local kwarg_default = expr(ast, ls)
                     if not kwargs then kwargs = {} end
-                    kwargs[#kwargs+1] = { parameter = name, default = arg_expr }
+                    ast:var_declare(name)
+                    kwargs[#kwargs+1] = { kwarg_default, ast:literal(name) }
                 else
                     args[#args+1] = ast:var_declare(name)
                 end
