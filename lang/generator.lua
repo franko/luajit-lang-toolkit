@@ -565,6 +565,12 @@ function TestRule:LogicalExpression(node, jmp, jreg, negate, store, dest)
     end
 end
 
+function StatementRule:StatementsGroup(node)
+    for i = 1, #node.statements do
+        self:emit(node.statements[i])
+    end
+end
+
 function StatementRule:CallExpression(node)
     self:expr_tomultireg(node, 0, false)
 end
