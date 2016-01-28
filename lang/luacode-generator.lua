@@ -200,6 +200,12 @@ function ExpressionRule:SendExpression(node)
     return exp, operator.ident_priority
 end
 
+function StatementRule:StatementsGroup(node)
+    for i = 1, #node.statements do
+        self:emit(node.statements[i])
+    end
+end
+
 function StatementRule:FunctionDeclaration(node)
     self:proto_enter(0)
     local name = self:expr_emit(node.id)
