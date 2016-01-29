@@ -40,6 +40,8 @@ local function func_expr(body, params, vararg, firstline, lastline)
 end
 
 local function func_decl_keywords(id, body, args, kwargs, vararg, locald, firstline, lastline)
+    local local_f_decl = build("LocalDeclaration", { names = { id } , expressions = { }, line = firstline })
+
     local kwdefaults = build("Table", { keyvals = kwargs, line = firstline })
     local kwdefaults_decl = build("LocalDeclaration", { names = { ident("__kwdefaults") }, expressions = { kwdefaults }, line = firstline })
 
@@ -75,8 +77,10 @@ local function func_decl_keywords(id, body, args, kwargs, vararg, locald, firstl
     local obj_meta = build("Table", { keyvals = { { ident("__fallback"), literal("__call") } }, line = firstline })
 
     local create_obj_call = build("CallExpression", { callee = ident("setmetatable"), arguments = { obj_table, obj_meta }, line = firstline })
-    local obj_decl = build("LocalDeclaration", { names = { id }, expressions = { create_obj_call }, line = firstline })
-    return build("StatementsGroup", { statements = { kwdefaults_decl, naked_func, fallback_func, obj_decl }, line = firstline })
+
+    local obj_assign = build("AssignmentExpression", { left = { id }, right = { create_obj_call }, line = firstline })
+    local gen_stmts = locald and { local_f_decl, kwdefaults_decl, naked_func, fallback_func, obj_assign } or { kwdefaults_decl, naked_func, fallback_func, obj_assign }
+    return build("StatementsGroup", { statements = gen_stmts, line = firstline })
 end
 
 function AST.expr_function(ast, args, body, proto)
@@ -93,7 +97,11 @@ function AST.local_function_decl(ast, name, args, body, proto)
 end
 
 function AST.function_decl(ast, path, args, body, proto)
-   return func_decl(path, body, args, proto.varargs, false, proto.firstline, proto.lastline)
+    if args.kwargs then
+        return func_decl_keywords(path, body, args, args.kwargs, proto.varargs, false, proto.firstline, proto.lastline)
+    else
+        return func_decl(path, body, args, proto.varargs, false, proto.firstline, proto.lastline)
+    end
 end
 
 function AST.chunk(ast, body, chunkname, firstline, lastline)
