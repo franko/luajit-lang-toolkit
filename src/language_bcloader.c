@@ -12,6 +12,7 @@
 #include "lang/compile.h"
 #include "lang/generator.h"
 #include "lang/lexer.h"
+#include "lang/id-generator.h"
 #include "lang/lua-ast.h"
 #include "lang/operator.h"
 #include "lang/parser.h"
@@ -32,6 +33,7 @@ static struct bcpair bcmodule[] = {
     {"compile", luaJIT_BC_compile, luaJIT_BC_compile_SIZE},
     {"generator", luaJIT_BC_generator, luaJIT_BC_generator_SIZE},
     {"lexer", luaJIT_BC_lexer, luaJIT_BC_lexer_SIZE},
+    {"id-generator", luaJIT_BC_id_generator, luaJIT_BC_id_generator_SIZE},
     {"lua-ast", luaJIT_BC_lua_ast, luaJIT_BC_lua_ast_SIZE},
     {"operator", luaJIT_BC_operator, luaJIT_BC_operator_SIZE},
     {"parser", luaJIT_BC_parser, luaJIT_BC_parser_SIZE},

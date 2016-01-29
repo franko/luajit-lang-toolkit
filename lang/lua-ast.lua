@@ -193,7 +193,12 @@ end
 function AST.var_declare(ast, name)
     local id = ident(name)
     ast.current.vars[name] = true
+    ast.id_generator.var_declare(name)
     return id
+end
+
+function AST.genid(ast)
+    return ast.id_generator.new_ident()
 end
 
 function AST.fscope_begin(ast)
@@ -204,10 +209,14 @@ function AST.fscope_end(ast)
     ast.current = ast.current.parent
 end
 
+function AST.close(ast)
+    ast.id_generator.close_lexical()
+end
+
 local ASTClass = { __index = AST }
 
-local function new_ast()
-    return setmetatable({ }, ASTClass)
+local function new_ast(genid)
+    return setmetatable({ id_generator = genid }, ASTClass)
 end
 
 return { New = new_ast }
