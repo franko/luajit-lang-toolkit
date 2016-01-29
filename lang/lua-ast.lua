@@ -72,31 +72,32 @@ local function build_option_from_node(table_node, property, default_expr_node_li
     return logical_binop("or", expr_first_clause, lookup_key_pair_node_list(default_expr_node_list, property), line)
 end
 
-local function func_decl_keywords(id, body, args, kwargs, vararg, locald, firstline, lastline)
+local function func_decl_keywords(ast, id, body, args, kwargs, vararg, locald, firstline, lastline)
     local local_f_decl = build("LocalDeclaration", { names = { id } , expressions = { }, line = firstline })
 
-    -- Alias AST node object.
-    local naked_func_args = list_extend({ ident("__kwargs") }, args)
+    local kwargs_id, nakedf_id, object_id, fallbf_id = ast:genid(), ast:genid(), ast:genid(), ast:genid()
+
+    local naked_func_args = list_extend({ kwargs_id }, args)
 
     local kwids, kwvalues = {}, {}
     for i = 1, #kwargs do
         local kwname = kwargs[i][2].value
         kwids[i] = ident(kwname)
-        kwvalues[i] = build_option_from_node(ident("__kwargs"), kwname, kwargs, firstline)
+        kwvalues[i] = build_option_from_node(kwargs_id, kwname, kwargs, firstline)
     end
     local kw_vars_local_decl = build("LocalDeclaration", { names = kwids, expressions = kwvalues, line = firstline })
 
-    table.insert(body, 1, kw_vars_local_decl) -- Insert kw local variable declarations into function body.
-    local naked_func = func_decl(ident("__naked"), body, naked_func_args, vararg, true, firstline, lastline)
+    local naked_func_body = list_extend({ kw_vars_local_decl}, body)
+    local naked_func = func_decl(nakedf_id, naked_func_body, naked_func_args, vararg, true, firstline, lastline)
 
-    local fallback_args = list_extend({ ident("__obj") }, args)
+    local fallback_args = list_extend({ object_id }, args)
     local fallback_call_params = list_extend({ empty_table(firstline) }, args)
-    local fallback_call = build("CallExpression", { callee = ident("__naked"), arguments = fallback_call_params, line = firstline })
+    local fallback_call = build("CallExpression", { callee = nakedf_id, arguments = fallback_call_params, line = firstline })
     local fallback_func_body = { build("ReturnStatement", { arguments = { fallback_call }, line = firstline }) }
-    local fallback_func = func_decl(ident("__fallback"), fallback_func_body, fallback_args, false, true, firstline, lastline)
+    local fallback_func = func_decl(fallbf_id, fallback_func_body, fallback_args, false, true, firstline, lastline)
 
-    local obj_table = build("Table", { keyvals = { { ident("__naked"), literal("__kwcall") } }, line = firstline })
-    local obj_meta = build("Table", { keyvals = { { ident("__fallback"), literal("__call") } }, line = firstline })
+    local obj_table = build("Table", { keyvals = { { nakedf_id, literal("__kwcall") } }, line = firstline })
+    local obj_meta = build("Table", { keyvals = { { fallbf_id, literal("__call") } }, line = firstline })
 
     local create_obj_call = build("CallExpression", { callee = ident("setmetatable"), arguments = { obj_table, obj_meta }, line = firstline })
 
@@ -112,7 +113,7 @@ end
 function AST.local_function_decl(ast, name, args, body, proto)
     local id = ast:var_declare(name)
     if args.kwargs then
-        return func_decl_keywords(id, body, args, args.kwargs, proto.varargs, true, proto.firstline, proto.lastline)
+        return func_decl_keywords(ast, id, body, args, args.kwargs, proto.varargs, true, proto.firstline, proto.lastline)
     else
         return func_decl(id, body, args, proto.varargs, true, proto.firstline, proto.lastline)
     end
@@ -120,7 +121,7 @@ end
 
 function AST.function_decl(ast, path, args, body, proto)
     if args.kwargs then
-        return func_decl_keywords(path, body, args, args.kwargs, proto.varargs, false, proto.firstline, proto.lastline)
+        return func_decl_keywords(ast, path, body, args, args.kwargs, proto.varargs, false, proto.firstline, proto.lastline)
     else
         return func_decl(path, body, args, proto.varargs, false, proto.firstline, proto.lastline)
     end
