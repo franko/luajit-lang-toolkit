@@ -15,6 +15,18 @@ local function field(obj, name, line)
     return build("MemberExpression", { object = obj, property = ident(name), computed = false, line = line })
 end
 
+local function logical_binop(op, left, right, line)
+    return build("LogicalExpression", { operator = op, left = left, right = right, line = line })
+end
+
+local function binop(op, left, right, line)
+    return build("BinaryExpression", { operator = op, left = left, right = right, line = line })
+end
+
+local function empty_table(line)
+    return build("Table", { keyvals = { }, line = line })
+end
+
 local function does_multi_return(expr)
     local k = expr.kind
     return k == "CallExpression" or k == "SendExpression" or k == "Vararg"
@@ -39,36 +51,46 @@ local function func_expr(body, params, vararg, firstline, lastline)
     return build("FunctionExpression", { body = body, params = params, vararg = vararg, firstline = firstline, lastline = lastline })
 end
 
+local function list_extend(ls, src)
+    local n = #ls
+    for i = 1, #src do ls[n+i] = src[i] end
+    return ls
+end
+
+local function lookup_key_pair_node_list(kwargs, property)
+    for i = 1, #kwargs do
+        local kwname = kwargs[i][2].value
+        if kwname == property then
+            return kwargs[i][1]
+        end
+    end
+end
+
+local function build_option_from_node(table_node, property, default_expr_node_list, line)
+    local index_table = field(table_node, property, line)
+    local expr_first_clause = logical_binop("and", binop("~=", index_table, literal(nil), line), index_table, line)
+    return logical_binop("or", expr_first_clause, lookup_key_pair_node_list(default_expr_node_list, property), line)
+end
+
 local function func_decl_keywords(id, body, args, kwargs, vararg, locald, firstline, lastline)
     local local_f_decl = build("LocalDeclaration", { names = { id } , expressions = { }, line = firstline })
 
-    local kwdefaults = build("Table", { keyvals = kwargs, line = firstline })
-    local kwdefaults_decl = build("LocalDeclaration", { names = { ident("__kwdefaults") }, expressions = { kwdefaults }, line = firstline })
-
-    local naked_func_args = { ident("__kwargs") }
-    for i = 1, #args do
-        naked_func_args[i+1] = args[i] -- Alias AST node object.
-    end
+    -- Alias AST node object.
+    local naked_func_args = list_extend({ ident("__kwargs") }, args)
 
     local kwids, kwvalues = {}, {}
     for i = 1, #kwargs do
         local kwname = kwargs[i][2].value
         kwids[i] = ident(kwname)
-        kwvalues[i] = build("LogicalExpression", { operator = "or", left = field(ident("__kwargs"), kwname, firstline), right = field(ident("__kwdefaults"), kwname, firstline), line = firstline})
+        kwvalues[i] = build_option_from_node(ident("__kwargs"), kwname, kwargs, firstline)
     end
     local kw_vars_local_decl = build("LocalDeclaration", { names = kwids, expressions = kwvalues, line = firstline })
 
     table.insert(body, 1, kw_vars_local_decl) -- Insert kw local variable declarations into function body.
     local naked_func = func_decl(ident("__naked"), body, naked_func_args, vararg, true, firstline, lastline)
 
-    local fallback_args = { ident("__obj") }
-    for i = 1, #args do
-        fallback_args[i+1] = args[i] -- Alias AST node object.
-    end
-    local fallback_call_params = { ident("__kwdefaults") }
-    for i = 1, #args do
-        fallback_call_params[i+1] = args[i] -- Alias AST node object.
-    end
+    local fallback_args = list_extend({ ident("__obj") }, args)
+    local fallback_call_params = list_extend({ empty_table(firstline) }, args)
     local fallback_call = build("CallExpression", { callee = ident("__naked"), arguments = fallback_call_params, line = firstline })
     local fallback_func_body = { build("ReturnStatement", { arguments = { fallback_call }, line = firstline }) }
     local fallback_func = func_decl(ident("__fallback"), fallback_func_body, fallback_args, false, true, firstline, lastline)
@@ -79,7 +101,7 @@ local function func_decl_keywords(id, body, args, kwargs, vararg, locald, firstl
     local create_obj_call = build("CallExpression", { callee = ident("setmetatable"), arguments = { obj_table, obj_meta }, line = firstline })
 
     local obj_assign = build("AssignmentExpression", { left = { id }, right = { create_obj_call }, line = firstline })
-    local gen_stmts = locald and { local_f_decl, kwdefaults_decl, naked_func, fallback_func, obj_assign } or { kwdefaults_decl, naked_func, fallback_func, obj_assign }
+    local gen_stmts = locald and { local_f_decl, naked_func, fallback_func, obj_assign } or { naked_func, fallback_func, obj_assign }
     return build("StatementsGroup", { statements = gen_stmts, line = firstline })
 end
 
