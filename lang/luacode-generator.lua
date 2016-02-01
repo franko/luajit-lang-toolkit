@@ -200,6 +200,10 @@ function ExpressionRule:SendExpression(node)
     return exp, operator.ident_priority
 end
 
+function ExpressionRule:StatementsBlockExpression(node)
+    error("NYI")
+end
+
 function StatementRule:StatementsGroup(node)
     for i = 1, #node.statements do
         self:emit(node.statements[i])

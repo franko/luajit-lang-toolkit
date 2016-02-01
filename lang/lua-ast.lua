@@ -72,7 +72,7 @@ local function build_option_from_node(table_node, property, default_expr_node_li
     return logical_binop("or", expr_first_clause, lookup_key_pair_node_list(default_expr_node_list, property), line)
 end
 
-local function keywords_func_helper_stmts(ast, id, body, args, kwargs, vararg, firstline, lastline)
+local function keywords_func_helper_stmts(ast, body, args, kwargs, vararg, firstline, lastline)
     local kwargs_id, nakedf_id, object_id, fallbf_id = ast:genid(), ast:genid(), ast:genid(), ast:genid()
 
     local naked_func_args = list_extend({ kwargs_id }, args)
@@ -96,22 +96,30 @@ local function keywords_func_helper_stmts(ast, id, body, args, kwargs, vararg, f
 
     local obj_table = build("Table", { keyvals = { { nakedf_id, literal("__kwcall") } }, line = firstline })
     local obj_meta = build("Table", { keyvals = { { fallbf_id, literal("__call") } }, line = firstline })
-
     local create_obj_call = build("CallExpression", { callee = ident("setmetatable"), arguments = { obj_table, obj_meta }, line = firstline })
 
-    local obj_assign = build("AssignmentExpression", { left = { id }, right = { create_obj_call }, line = firstline })
-    return { naked_func, fallback_func, obj_assign }
+    return naked_func, fallback_func, create_obj_call
 end
 
 local function func_decl_keywords(ast, id, body, args, kwargs, vararg, locald, firstline, lastline)
     local func_decl = build("LocalDeclaration", { names = { id } , expressions = { }, line = firstline })
-    local pre_stmts = keywords_func_helper_stmts(ast, id, body, args, kwargs, vararg, firstline, lastline)
-    local gen_stmts = locald and list_extend({ func_decl }, pre_stmts) or pre_stmts
+    local naked_func, fallback_func, create_obj_call = keywords_func_helper_stmts(ast, body, args, kwargs, vararg, firstline, lastline)
+    local obj_assign = build("AssignmentExpression", { left = { id }, right = { create_obj_call }, line = firstline })
+    local gen_stmts = locald and { func_decl, naked_func, fallback_func, obj_assign } or { naked_func, fallback_func, obj_assign }
     return build("StatementsGroup", { statements = gen_stmts, line = firstline })
 end
 
+local function func_expr_keywords(ast, body, args, kwargs, vararg, line)
+    local naked_func, fallback_func, create_obj_call = keywords_func_helper_stmts(ast, body, args, kwargs, vararg, line, line)
+    return build("StatementsBlockExpression", { statements = { naked_func, fallback_func }, expr = create_obj_call, line = line })
+end
+
 function AST.expr_function(ast, args, body, proto)
-    return func_expr(body, args, proto.varargs, proto.firstline, proto.lastline)
+    if args.kwargs then
+        return func_expr_keywords(ast, body, args, args.kwargs, proto.varargs, proto.firstline)
+    else
+        return func_expr(body, args, proto.varargs, proto.firstline, proto.lastline)
+    end
 end
 
 function AST.local_function_decl(ast, name, args, body, proto)

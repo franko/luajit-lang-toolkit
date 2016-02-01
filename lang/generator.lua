@@ -398,6 +398,20 @@ end
 
 ExpressionRule.FunctionDeclaration = ExpressionRule.FunctionExpression
 
+function ExpressionRule:StatementsBlockExpression(node, dest, jreg)
+    local free = self.ctx.freereg
+    self.ctx:op_nils(free, 1)
+    self.ctx:setreg(free + 1)
+
+    self:block_enter()
+    self:block_emit(node.statements)
+
+    local expr_reg = self:expr_toanyreg(node.expr)
+    mov_toreg(self.ctx, dest, expr_reg)
+    self:block_leave(node.line)
+    self.ctx.freereg = free
+end
+
 local function emit_call_expression(self, node, want, use_tail, use_self)
     local free = self.ctx.freereg
 
