@@ -198,7 +198,6 @@ function expr_primary(ast, ls)
             vk, v = 'call', ast:expr_method_call(v, key, args, line)
         elseif ls.token == '(' or ls.token == 'TK_string' or ls.token == '{' then
             local args, kwargs = parse_args(ast, ls, true)
-            print(">> arguments", kwargs)
             vk, v = 'call', ast:expr_function_call(v, args, kwargs, line)
         else
             break
@@ -357,7 +356,6 @@ local function parse_local(ast, ls)
     if lex_opt(ls, 'TK_function') then -- Local function declaration.
         local name = lex_str(ls)
         local args, body, proto = parse_body(ast, ls, line, false, true)
-        print(">> parser creating local function declaration", args.kwargs)
         return ast:local_function_decl(name, args, body, proto)
     else -- Local variable declaration.
         local vl = { }
