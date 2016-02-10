@@ -1,7 +1,6 @@
 local lex_setup = require('lang.lexer')
 local parse = require('lang.parser')
 local lua_ast = require('lang.lua-ast')
-local id_generator = require('lang.id-generator')
 local reader = require('lang.reader')
 
 -- Two kind of backend can be used to generate the code from the AST:
@@ -22,10 +21,6 @@ local function lang_toolkit_error(msg)
     end
 end
 
-local function create_ident(name)
-    return { kind = "Identifier", name = name }
-end
-
 local function compile(reader, filename, options)
     local generator
     if options and options.code then
@@ -34,10 +29,8 @@ local function compile(reader, filename, options)
         generator = require('lang.generator')
     end
     local ls = lex_setup(reader, filename)
-    local genid = id_generator.lexical(create_ident)
-    local ast_builder = lua_ast.New(genid)
+    local ast_builder = lua_ast.New()
     local parse_success, ast_tree = pcall(parse, ast_builder, ls)
-    ast_builder:close()
     if not parse_success then
         return lang_toolkit_error(ast_tree)
     end
