@@ -302,8 +302,8 @@ function AST.var_declare(ast, name)
     return id
 end
 
-function AST.genid(ast)
-    return ast.id_generator.new_ident()
+function AST.genid(ast, name)
+    return ast.id_generator.new_ident(name)
 end
 
 function AST.fscope_begin(ast)
