@@ -1,3 +1,5 @@
+local id_generator = require("lang.id-generator")
+
 local function build(kind, node)
     node.kind = kind
     return node
@@ -74,7 +76,10 @@ end
 
 local function keywords_func_helper_stmts(ast, id, body, args, kwargs, vararg, firstline, lastline)
     local id_prefix = id and id.name .. "_" or ""
-    local kwargs_id, nakedf_id, object_id, fallbf_id = ast:genid("kwargs"), ast:genid(id_prefix .. "kwcall"), ast:genid(), ast:genid(id_prefix .. "call")
+    local nakedf_id, fallbf_id = ast:genid(id_prefix .. "kwcall"), ast:genid(id_prefix .. "call")
+
+    ast:fscope_begin()
+    local kwargs_id = ast:genid("kwargs")
 
     local kwcall_args = list_extend({ kwargs_id }, args)
 
@@ -88,12 +93,17 @@ local function keywords_func_helper_stmts(ast, id, body, args, kwargs, vararg, f
 
     local kwcall_body = list_extend({ kw_vars_local_decl}, body)
     local kwcall = func_decl(nakedf_id, kwcall_body, kwcall_args, vararg, true, firstline, lastline)
+    ast:fscope_end()
+
+    ast:fscope_begin()
+    local object_id = ast:genid()
 
     local fallback_args = list_extend({ object_id }, args)
     local fallback_call_params = list_extend({ empty_table(firstline) }, args)
     local fallback_call = build("CallExpression", { callee = nakedf_id, arguments = fallback_call_params, line = firstline })
     local fallback_func_body = { build("ReturnStatement", { arguments = { fallback_call }, line = firstline }) }
     local fallback_func = func_decl(fallbf_id, fallback_func_body, fallback_args, false, true, firstline, lastline)
+    ast:fscope_end()
 
     local obj_table = build("Table", { keyvals = { { nakedf_id, literal("__kwcall") } }, line = firstline })
     local obj_meta = build("Table", { keyvals = { { fallbf_id, literal("__call") } }, line = firstline })
@@ -299,7 +309,6 @@ end
 function AST.var_declare(ast, name)
     local id = ident(name)
     ast.variables:declare(name)
-    ast.id_generator.var_declare(name)
     return id
 end
 
@@ -310,9 +319,13 @@ end
 function AST.fscope_begin(ast)
     local vars = ast.variables
     vars.current = new_scope(vars.current)
+    ast.id_generator.scope_enter()
 end
 
 function AST.fscope_end(ast)
+    -- It is important to call ast.id_generator.scope_exit before
+    -- leaving the "variables" scope.
+    ast.id_generator.scope_exit()
     local vars = ast.variables
     vars.current = vars.current.parent
 end
@@ -328,11 +341,23 @@ local function new_variables_registry()
         local vars = self.current.vars
         vars[#vars+1] = name
     end
-    return { declare = declare }
+    local lookup = function(self, name)
+        local scope = self.current
+        while scope do
+            for i = 1, #scope.vars do
+                if scope.vars[i] == name then
+                    return scope
+                end
+            end
+            scope = scope.parent
+        end
+    end
+    return { declare = declare, lookup = lookup }
 end
 
-local function new_ast(genid)
+local function new_ast()
     local vars = new_variables_registry()
+    local genid = id_generator.lexical(ident, vars)
     return setmetatable({ id_generator = genid, variables = vars }, ASTClass)
 end
 
