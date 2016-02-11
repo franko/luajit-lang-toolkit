@@ -298,7 +298,7 @@ end
 
 function AST.var_declare(ast, name)
     local id = ident(name)
-    ast.current.vars[name] = true
+    ast.variables:declare(name)
     ast.id_generator.var_declare(name)
     return id
 end
@@ -308,11 +308,13 @@ function AST.genid(ast, name)
 end
 
 function AST.fscope_begin(ast)
-    ast.current = new_scope(ast.current)
+    local vars = ast.variables
+    vars.current = new_scope(vars.current)
 end
 
 function AST.fscope_end(ast)
-    ast.current = ast.current.parent
+    local vars = ast.variables
+    vars.current = vars.current.parent
 end
 
 function AST.close(ast)
@@ -321,8 +323,17 @@ end
 
 local ASTClass = { __index = AST }
 
+local function new_variables_registry()
+    local declare = function(self, name)
+        local vars = self.current.vars
+        vars[#vars+1] = name
+    end
+    return { declare = declare }
+end
+
 local function new_ast(genid)
-    return setmetatable({ id_generator = genid }, ASTClass)
+    local vars = new_variables_registry()
+    return setmetatable({ id_generator = genid, variables = vars }, ASTClass)
 end
 
 return { New = new_ast }
