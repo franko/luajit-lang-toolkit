@@ -299,13 +299,6 @@ function AST.goto_stmt(ast, name, line)
     return build("GotoStatement", { label = name, line = line })
 end
 
-local function new_scope(parent_scope)
-    return {
-        vars = { },
-        parent = parent_scope,
-    }
-end
-
 function AST.var_declare(ast, name)
     local id = ident(name)
     ast.variables:declare(name)
@@ -313,52 +306,64 @@ function AST.var_declare(ast, name)
 end
 
 function AST.genid(ast, name)
-    return ast.id_generator.new_ident(name)
+    return id_generator.genid(ast.variables, name)
 end
 
 function AST.fscope_begin(ast)
-    local vars = ast.variables
-    vars.current = new_scope(vars.current)
-    ast.id_generator.scope_enter()
+    ast.variables:scope_enter()
 end
 
 function AST.fscope_end(ast)
-    -- It is important to call ast.id_generator.scope_exit before
+    -- It is important to call id_generator.close_gen_variables before
     -- leaving the "variables" scope.
-    ast.id_generator.scope_exit()
-    local vars = ast.variables
-    vars.current = vars.current.parent
-end
-
-function AST.close(ast)
-    ast.id_generator.close_lexical()
+    id_generator.close_gen_variables(ast.variables)
+    ast.variables:scope_exit()
 end
 
 local ASTClass = { __index = AST }
 
-local function new_variables_registry()
+local function new_scope(parent_scope)
+    return {
+        vars = { },
+        parent = parent_scope,
+    }
+end
+
+local function new_variables_registry(create, match)
     local declare = function(self, name)
         local vars = self.current.vars
-        vars[#vars+1] = name
+        local entry = create(name)
+        vars[#vars+1] = entry
+        return entry
     end
+
+    local scope_enter = function(self)
+        self.current = new_scope(self.current)
+    end
+
+    local scope_exit = function(self)
+        self.current = self.current.parent
+    end
+
     local lookup = function(self, name)
         local scope = self.current
         while scope do
             for i = 1, #scope.vars do
-                if scope.vars[i] == name then
+                if match(scope.vars[i], name) then
                     return scope
                 end
             end
             scope = scope.parent
         end
     end
-    return { declare = declare, lookup = lookup }
+
+    return { declare = declare, scope_enter = scope_enter, scope_exit = scope_exit, lookup = lookup }
 end
 
 local function new_ast()
-    local vars = new_variables_registry()
-    local genid = id_generator.lexical(ident, vars)
-    return setmetatable({ id_generator = genid, variables = vars }, ASTClass)
+    local match_id_name = function(id, name) return id.name == name end
+    local vars = new_variables_registry(ident, match_id_name)
+    return setmetatable({ variables = vars }, ASTClass)
 end
 
 return { New = new_ast }
