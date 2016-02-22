@@ -499,9 +499,10 @@ end
 local function parse_params_delim(ast, ls, needself, accept_keywords, start_token, end_token)
     lex_check(ls, start_token)
     local args = { }
+    local vararg = false
     local kwargs
     if needself then
-        args[1] = ast:var_declare("self")
+        args[1] = "self"
     end
     if ls.token ~= end_token then
         repeat
@@ -510,15 +511,13 @@ local function parse_params_delim(ast, ls, needself, accept_keywords, start_toke
                 if accept_keywords and lex_opt(ls, '=') then
                     local kwarg_default = expr(ast, ls)
                     if not kwargs then kwargs = {} end
-                    ast:var_declare(name)
                     kwargs[#kwargs+1] = { kwarg_default, ast:literal(name) }
                 else
-                    args[#args+1] = ast:var_declare(name)
+                    args[#args+1] = name
                 end
             elseif ls.token == 'TK_dots' then
                 ls:next()
-                ls.fs.varargs = true
-                args[#args + 1] = ast:expr_vararg()
+                vararg = true
                 break
             else
                 err_syntax(ls, "<name> or \"...\" expected")
@@ -526,8 +525,7 @@ local function parse_params_delim(ast, ls, needself, accept_keywords, start_toke
         until not lex_opt(ls, ',')
     end
     lex_check(ls, end_token)
-    args.kwargs = kwargs
-    return args
+    return args, vararg, kwargs
 end
 
 local function parse_params(ast, ls, needself, accept_keywords)
@@ -561,7 +559,9 @@ function parse_body(ast, ls, line, needself, accept_keywords)
     ls.fs = new_proto(ls, false)
     ast:fscope_begin()
     ls.fs.firstline = line
-    local args = parse_params(ast, ls, needself, accept_keywords)
+    local args, vararg, kwargs = parse_params(ast, ls, needself, accept_keywords)
+    local params = ast:func_parameters_decl(args, vararg, kwargs)
+    ls.fs.varargs = vararg
     local body = parse_block(ast, ls)
     ast:fscope_end()
     local proto = ls.fs
@@ -571,7 +571,7 @@ function parse_body(ast, ls, line, needself, accept_keywords)
     ls.fs.lastline = ls.linenumber
     ls:next()
     ls.fs = pfs
-    return args, body, proto
+    return params, body, proto
 end
 
 function parse_simple_body(ast, ls, line)
@@ -579,7 +579,9 @@ function parse_simple_body(ast, ls, line)
     ls.fs = new_proto(ls, false)
     ast:fscope_begin()
     ls.fs.firstline = line
-    local args = parse_params_delim(ast, ls, false, true, '|', '|')
+    local args, vararg, kwargs = parse_params_delim(ast, ls, false, true, '|', '|')
+    local params = ast:func_parameters_decl(args, vararg, kwargs)
+    ls.fs.varargs = vararg
     ls.fs.lastline = ls.linenumber
     local exp = expr(ast, ls)
     local ret_stmt = ast:return_stmt({ exp }, line)
@@ -588,7 +590,7 @@ function parse_simple_body(ast, ls, line)
     local proto = ls.fs
     ls.fs.has_return = true
     ls.fs = pfs
-    return args, body, proto
+    return params, body, proto
 end
 
 function parse_block(ast, ls, firstline)

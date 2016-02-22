@@ -150,6 +150,18 @@ function AST.function_decl(ast, path, args, body, proto)
     end
 end
 
+function AST.func_parameters_decl(ast, args, vararg, kwargs)
+    local params = {}
+    for i = 1, #args do
+        params[i] = ast:var_declare(args[i])
+    end
+    if vararg then
+        params[#params + 1] = ast:expr_vararg()
+    end
+    params.kwargs = kwargs
+    return params
+end
+
 function AST.chunk(ast, body, chunkname, firstline, lastline)
     return build("Chunk", { body = body, chunkname = chunkname, firstline = firstline, lastline = lastline })
 end
