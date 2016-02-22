@@ -127,17 +127,52 @@ function expr_simple(ast, ls)
     return e
 end
 
+local function expr_keyword(ast, ls)
+    local kw, val
+    if ls.token == "TK_name" and ls:lookahead() == '=' then
+        local name = lex_str(ls)
+        kw = ast:literal(name)
+        lex_check(ls, '=')
+    end
+    val = expr(ast, ls)
+    return val, kw
+end
+
+local function expr_list_fix_last(ast, exps)
+    local n = #exps
+    if n > 0 then
+        exps[n] = ast:set_expr_last(exps[n])
+    end
+end
+
 function expr_list(ast, ls)
     local exps = { }
     exps[1] = expr(ast, ls)
     while lex_opt(ls, ',') do
         exps[#exps + 1] = expr(ast, ls)
     end
-    local n = #exps
-    if n > 0 then
-        exps[n] = ast:set_expr_last(exps[n])
-    end
+    expr_list_fix_last(ast, exps)
     return exps
+end
+
+function expr_list_with_keywords(ast, ls)
+    local kwargs, args = {}, {}
+    local val, kw = expr_keyword(ast, ls)
+    if kw then
+        kwargs[#kwargs+1] = { val, kw }
+    else
+        args[#args+1] = val
+    end
+    while lex_opt(ls, ',') do
+        local val, kw = expr_keyword(ast, ls)
+        if kw then
+            kwargs[#kwargs+1] = { val, kw }
+        else
+            args[#args+1] = val
+        end
+    end
+    expr_list_fix_last(ast, args)
+    return args, #kwargs > 0 and kwargs or nil
 end
 
 function expr_unop(ast, ls)
@@ -281,36 +316,19 @@ local function parse_repeat(ast, ls, line)
     return ast:repeat_stmt(cond, body, line, lastline)
 end
 
-local function expr_keyword(ast, ls, accept_keywords)
-    local kw, val
-    if ls.token == "TK_name" and accept_keywords and ls:lookahead() == '=' then
-        local name = lex_str(ls)
-        kw = ast:literal(name)
-        lex_check(ls, '=')
-    end
-    val = expr(ast, ls)
-    return val, kw
-end
-
 -- Parse function argument list.
 function parse_args(ast, ls, accept_keywords)
     local line = ls.linenumber
-    local args = { }
-    local kwargs
+    local args, kwargs
     if ls.token == '(' then
         if not LJ_52 and line ~= ls.lastline then
             err_syntax(ls, "ambiguous syntax (function call x new statement)")
         end
         ls:next()
-        while ls.token ~= ')' do
-            local val, kw = expr_keyword(ast, ls, accept_keywords)
-            if kw then
-                if not kwargs then kwargs = {} end
-                kwargs[#kwargs+1] = { val, kw }
-            else
-                args[#args+1] = val
-            end
-            if not lex_opt(ls, ',') then break end
+        if ls.token ~= ')' then -- Not f().
+            args, kwargs = expr_list_with_keywords(ast, ls)
+        else
+            args = { }
         end
         lex_match(ls, ')', '(', line)
     elseif ls.token == '{' then
