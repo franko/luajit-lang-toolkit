@@ -38,7 +38,7 @@ RANLIB= ranlib
 
 ifeq ($(HOST_SYS),Windows)
   LUAJIT_CFLAGS := -IC:/fra/local/include
-  LUAJIT_LIBS := -LC:/fra/local/lib -llua51
+  LUAJIT_LIBS := -LC:/fra/local/lib -lluajit
 else
   LUAJIT_CFLAGS := $(shell pkg-config luajit --cflags)
   LUAJIT_LIBS := $(shell pkg-config luajit --libs)
