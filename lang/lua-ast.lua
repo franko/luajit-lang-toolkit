@@ -53,20 +53,95 @@ local function func_expr(body, params, vararg, firstline, lastline)
     return build("FunctionExpression", { body = body, params = params, vararg = vararg, firstline = firstline, lastline = lastline })
 end
 
+local function list_extend(ls, src)
+    local n = #ls
+    for i = 1, #src do ls[n+i] = src[i] end
+    return ls
+end
+
+local function lookup_key_pair_node_list(kwargs, property)
+    for i = 1, #kwargs do
+        local kwname = kwargs[i][2].value
+        if kwname == property then
+            return kwargs[i][1]
+        end
+    end
+end
+
+local function build_option_from_node(table_node, property, default_expr_node_list, line)
+    local index_table = field(table_node, property, line)
+    local expr_first_clause = logical_binop("and", binop("~=", index_table, literal(nil), line), index_table, line)
+    return logical_binop("or", expr_first_clause, lookup_key_pair_node_list(default_expr_node_list, property), line)
+end
+
+local function keywords_func_helper_stmts(ast, id, body, args, kwargs, vararg, firstline, lastline)
+    local id_prefix = id and id.name .. "_" or ""
+    local nakedf_id, fallbf_id = ast:genid(id_prefix .. "kwcall"), ast:genid(id_prefix .. "call")
+
+    ast:fscope_begin()
+    local kwargs_id = ast:genid("kwargs")
+
+    local kwcall_args = list_extend({ kwargs_id }, args)
+
+    local kwids, kwvalues = {}, {}
+    for i = 1, #kwargs do
+        local kwname = kwargs[i][2].value
+        kwids[i] = ident(kwname)
+        kwvalues[i] = build_option_from_node(kwargs_id, kwname, kwargs, firstline)
+    end
+    local kw_vars_local_decl = build("LocalDeclaration", { names = kwids, expressions = kwvalues, line = firstline })
+
+    local kwcall_body = list_extend({ kw_vars_local_decl}, body)
+    local kwcall = func_decl(nakedf_id, kwcall_body, kwcall_args, vararg, true, firstline, lastline)
+    ast:fscope_end()
+
+    ast:fscope_begin()
+    local object_id = ast:genid()
+
+    local fallback_args = list_extend({ object_id }, args)
+    local fallback_call_params = list_extend({ empty_table(firstline) }, args)
+    local fallback_call = build("CallExpression", { callee = nakedf_id, arguments = fallback_call_params, line = firstline })
+    local fallback_func_body = { build("ReturnStatement", { arguments = { fallback_call }, line = firstline }) }
+    local fallback_func = func_decl(fallbf_id, fallback_func_body, fallback_args, false, true, firstline, lastline)
+    ast:fscope_end()
+
+    local obj_table = build("Table", { keyvals = { { nakedf_id, literal("__kwcall") } }, line = firstline })
+    local obj_meta = build("Table", { keyvals = { { fallbf_id, literal("__call") } }, line = firstline })
+    local create_obj_call = build("CallExpression", { callee = ident("setmetatable"), arguments = { obj_table, obj_meta }, line = firstline })
+
+    return kwcall, fallback_func, create_obj_call
+end
+
+local function func_decl_keywords(ast, id, body, args, kwargs, vararg, locald, firstline, lastline)
+    local func_decl = build("LocalDeclaration", { names = { id } , expressions = { }, line = firstline })
+    local naked_func, fallback_func, create_obj_call = keywords_func_helper_stmts(ast, id, body, args, kwargs, vararg, firstline, lastline)
+    local obj_assign = build("AssignmentExpression", { left = { id }, right = { create_obj_call }, line = firstline })
+    local gen_stmts = locald and { func_decl, naked_func, fallback_func, obj_assign } or { naked_func, fallback_func, obj_assign }
+    return build("StatementsGroup", { statements = gen_stmts, line = firstline })
+end
+
 function AST.expr_function(ast, args, body, proto)
    return func_expr(body, args, proto.varargs, proto.firstline, proto.lastline)
 end
 
 function AST.local_function_decl(ast, name, args, body, proto)
     local id = ast:var_declare(name)
-    return func_decl(id, body, args, proto.varargs, true, proto.firstline, proto.lastline)
+    if args.kwargs then
+        return func_decl_keywords(ast, id, body, args, args.kwargs, proto.varargs, true, proto.firstline, proto.lastline)
+    else
+        return func_decl(id, body, args, proto.varargs, true, proto.firstline, proto.lastline)
+    end
 end
 
 function AST.function_decl(ast, path, args, body, proto)
-   return func_decl(path, body, args, proto.varargs, false, proto.firstline, proto.lastline)
+    if args.kwargs then
+        return func_decl_keywords(ast, path, body, args, args.kwargs, proto.varargs, false, proto.firstline, proto.lastline)
+    else
+        return func_decl(path, body, args, proto.varargs, false, proto.firstline, proto.lastline)
+    end
 end
 
-function AST.func_parameters_decl(ast, args, vararg)
+function AST.func_parameters_decl(ast, args, vararg, kwargs)
     local params = {}
     for i = 1, #args do
         params[i] = ast:var_declare(args[i])
@@ -74,6 +149,7 @@ function AST.func_parameters_decl(ast, args, vararg)
     if vararg then
         params[#params + 1] = ast:expr_vararg()
     end
+    params.kwargs = kwargs
     return params
 end
 
@@ -166,8 +242,18 @@ function AST.expr_method_call(ast, v, key, args, line)
     return build("SendExpression", { receiver = v, method = m, arguments = args, line = line })
 end
 
-function AST.expr_function_call(ast, v, args, line)
-    return build("CallExpression", { callee = v, arguments = args, line = line })
+function AST.expr_function_call(ast, v, args, kwargs, line)
+    if kwargs then
+        local kwt = build("Table", { keyvals = kwargs, line = line })
+        local ext_args = { kwt }
+        for i = 1, #args do
+            ext_args[i+1] = args[i]
+        end
+        local kw_callee = field(v, "__kwcall", line)
+        return build("CallExpression", { callee = kw_callee, arguments = ext_args, line = line })
+    else
+        return build("CallExpression", { callee = v, arguments = args, line = line })
+    end
 end
 
 function AST.return_stmt(ast, exps, line)

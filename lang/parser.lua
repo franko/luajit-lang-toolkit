@@ -115,7 +115,7 @@ function expr_simple(ast, ls)
         return expr_table(ast, ls)
     elseif tk == 'TK_function' then
         ls:next()
-        local args, body, proto = parse_body(ast, ls, ls.linenumber, false)
+        local args, body, proto = parse_body(ast, ls, ls.linenumber, false, false)
         return ast:expr_function(args, body, proto)
     elseif tk == '|' then
         local args, body, proto = parse_simple_body(ast, ls, ls.linenumber)
@@ -127,17 +127,52 @@ function expr_simple(ast, ls)
     return e
 end
 
+local function expr_keyword(ast, ls)
+    local kw, val
+    if ls.token == "TK_name" and ls:lookahead() == '=' then
+        local name = lex_str(ls)
+        kw = ast:literal(name)
+        lex_check(ls, '=')
+    end
+    val = expr(ast, ls)
+    return val, kw
+end
+
+local function expr_list_fix_last(ast, exps)
+    local n = #exps
+    if n > 0 then
+        exps[n] = ast:set_expr_last(exps[n])
+    end
+end
+
 function expr_list(ast, ls)
     local exps = { }
     exps[1] = expr(ast, ls)
     while lex_opt(ls, ',') do
         exps[#exps + 1] = expr(ast, ls)
     end
-    local n = #exps
-    if n > 0 then
-        exps[n] = ast:set_expr_last(exps[n])
-    end
+    expr_list_fix_last(ast, exps)
     return exps
+end
+
+function expr_list_with_keywords(ast, ls)
+    local kwargs, args = {}, {}
+    local val, kw = expr_keyword(ast, ls)
+    if kw then
+        kwargs[#kwargs+1] = { val, kw }
+    else
+        args[#args+1] = val
+    end
+    while lex_opt(ls, ',') do
+        local val, kw = expr_keyword(ast, ls)
+        if kw then
+            kwargs[#kwargs+1] = { val, kw }
+        else
+            args[#args+1] = val
+        end
+    end
+    expr_list_fix_last(ast, args)
+    return args, #kwargs > 0 and kwargs or nil
 end
 
 function expr_unop(ast, ls)
@@ -194,11 +229,11 @@ function expr_primary(ast, ls)
         elseif ls.token == ':' then
             ls:next()
             local key = lex_str(ls)
-            local args = parse_args(ast, ls)
+            local args = parse_args(ast, ls, false)
             vk, v = 'call', ast:expr_method_call(v, key, args, line)
         elseif ls.token == '(' or ls.token == 'TK_string' or ls.token == '{' then
-            local args = parse_args(ast, ls)
-            vk, v = 'call', ast:expr_function_call(v, args, line)
+            local args, kwargs = parse_args(ast, ls, true)
+            vk, v = 'call', ast:expr_function_call(v, args, kwargs, line)
         else
             break
         end
@@ -282,16 +317,20 @@ local function parse_repeat(ast, ls, line)
 end
 
 -- Parse function argument list.
-function parse_args(ast, ls)
+function parse_args(ast, ls, accept_keywords)
     local line = ls.linenumber
-    local args
+    local args, kwargs
     if ls.token == '(' then
         if not LJ_52 and line ~= ls.lastline then
             err_syntax(ls, "ambiguous syntax (function call x new statement)")
         end
         ls:next()
         if ls.token ~= ')' then -- Not f().
-            args = expr_list(ast, ls)
+            if accept_keywords then
+                args, kwargs = expr_list_with_keywords(ast, ls)
+            else
+                args = expr_list(ast, ls)
+            end
         else
             args = { }
         end
@@ -306,7 +345,7 @@ function parse_args(ast, ls)
     else
         err_syntax(ls, "function arguments expected")
     end
-    return args
+    return args, kwargs
 end
 
 local function parse_assignment(ast, ls, vlist, var, vk)
@@ -338,7 +377,7 @@ local function parse_local(ast, ls)
     local line = ls.linenumber
     if lex_opt(ls, 'TK_function') then -- Local function declaration.
         local name = lex_str(ls)
-        local args, body, proto = parse_body(ast, ls, line, false)
+        local args, body, proto = parse_body(ast, ls, line, false, true)
         return ast:local_function_decl(name, args, body, proto)
     else -- Local variable declaration.
         local vl = { }
@@ -367,7 +406,7 @@ local function parse_func(ast, ls, line)
         needself = true
         v = expr_field(ast, ls, v)
     end
-    local args, body, proto = parse_body(ast, ls, line, needself)
+    local args, body, proto = parse_body(ast, ls, line, needself, not needself)
     return ast:function_decl(v, args, body, proto)
 end
 
@@ -479,10 +518,11 @@ local function parse_stmt(ast, ls)
     return stmt, false
 end
 
-local function parse_params_delim(ast, ls, needself, start_token, end_token)
+local function parse_params_delim(ast, ls, needself, accept_keywords, start_token, end_token)
     lex_check(ls, start_token)
     local args = { }
     local vararg = false
+    local kwargs
     if needself then
         args[1] = "self"
     end
@@ -490,7 +530,13 @@ local function parse_params_delim(ast, ls, needself, start_token, end_token)
         repeat
             if ls.token == 'TK_name' or (not LJ_52 and ls.token == 'TK_goto') then
                 local name = lex_str(ls)
-                args[#args+1] = name
+                if accept_keywords and lex_opt(ls, '=') then
+                    local kwarg_default = expr(ast, ls)
+                    if not kwargs then kwargs = {} end
+                    kwargs[#kwargs+1] = { kwarg_default, ast:literal(name) }
+                else
+                    args[#args+1] = name
+                end
             elseif ls.token == 'TK_dots' then
                 ls:next()
                 vararg = true
@@ -501,11 +547,11 @@ local function parse_params_delim(ast, ls, needself, start_token, end_token)
         until not lex_opt(ls, ',')
     end
     lex_check(ls, end_token)
-    return args, vararg
+    return args, vararg, kwargs
 end
 
-local function parse_params(ast, ls, needself)
-    return parse_params_delim(ast, ls, needself, '(', ')')
+local function parse_params(ast, ls, needself, accept_keywords)
+    return parse_params_delim(ast, ls, needself, accept_keywords, '(', ')')
 end
 
 local function new_proto(ls, varargs)
@@ -530,13 +576,13 @@ local function parse_chunk(ast, ls)
 end
 
 -- Parse body of a function.
-function parse_body(ast, ls, line, needself)
+function parse_body(ast, ls, line, needself, accept_keywords)
     local pfs = ls.fs
     ls.fs = new_proto(ls, false)
     ast:fscope_begin()
     ls.fs.firstline = line
-    local args, vararg = parse_params(ast, ls, needself)
-    local params = ast:func_parameters_decl(args, vararg)
+    local args, vararg, kwargs = parse_params(ast, ls, needself, accept_keywords)
+    local params = ast:func_parameters_decl(args, vararg, kwargs)
     ls.fs.varargs = vararg
     local body = parse_block(ast, ls)
     ast:fscope_end()
@@ -555,7 +601,7 @@ function parse_simple_body(ast, ls, line)
     ls.fs = new_proto(ls, false)
     ast:fscope_begin()
     ls.fs.firstline = line
-    local args, vararg = parse_params_delim(ast, ls, false, '|', '|')
+    local args, vararg = parse_params_delim(ast, ls, false, false, '|', '|')
     local params = ast:func_parameters_decl(args, vararg)
     ls.fs.varargs = vararg
     ls.fs.lastline = ls.linenumber
