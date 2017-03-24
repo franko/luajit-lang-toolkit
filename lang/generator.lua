@@ -401,6 +401,7 @@ ExpressionRule.FunctionDeclaration = ExpressionRule.FunctionExpression
 local function emit_call_expression(self, node, want, use_tail, use_self)
     local free = self.ctx.freereg
 
+    local call_line = node.line
     if use_self then
         local obj = self:expr_toanyreg(node.receiver)
         self.ctx:op_move(free + 1, obj)
@@ -440,6 +441,7 @@ local function emit_call_expression(self, node, want, use_tail, use_self)
             self.ctx:op_call(free, want, narg)
         end
     end
+    self.ctx:setpcline(call_line)
 
     return want == MULTIRES, use_tail
 end
