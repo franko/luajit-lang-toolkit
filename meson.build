@@ -1,0 +1,6 @@
+project('luajit-lang-toolkit', 'c', version : '1.0', default_options : 'c_std=c99')
+
+lang_headers_dir = include_directories('.')
+
+subdir('lang')
+subdir('src')
