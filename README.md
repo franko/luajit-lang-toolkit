@@ -196,6 +196,37 @@ The `lang.*` are compiled into bytecode and stored as static C data into the exe
 By calling the function `language_bc_preload` all the modules are *preloaded* using the embedded bytecode.
 This feature can be disabled by changing the `BC_PRELOAD` variable in `src/Makefile`.
 
+How to build
+---
+
+The LuaJIT Language toolkit can be compiled and optionally installed using Meson. Ensure that Meson is installed, the easyest way is to use PIP, the Python installer. Ensure also that LuaJIT is correctly installed since it is required for the language toolkit.
+
+Once Meson and LuaJIT are installed configure the build with the command:
+
+```sh
+meson setup build
+```
+
+so that the 'build' directory will be used to build. You may also pass the preload option:
+
+```sh
+meson setup -Dpreload=true build
+```
+
+then to build use 'ninja', the default Meson's backend.
+
+```sh
+# build
+ninja -C build
+
+# install
+ninja -C build install
+```
+
+The Meson-based build will take care of installing all the required Lua files, the library itself, the luajit-x executable and a pkg-config file.
+
+Please note that when using the 'preload' option the Lua files will not be installed since they are embedded in the library itself.
+
 Running the Application
 ---
 
