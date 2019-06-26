@@ -6,7 +6,7 @@ endif
 
 lang_sources = ['language.c', 'language_loaders.c']
 
-if get_option('preload')
+if bytecode_preload
     lang_sources += 'language_bcloader.c'
     lang_cflags += '-DBC_PRELOAD'
 endif
