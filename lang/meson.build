@@ -2,9 +2,15 @@ lang_sources = ['ast-boolean-const-eval.lua', 'ast-const-eval.lua', 'bcread.lua'
 
 luajit = find_program('luajit')
 
-bc_generator = generator(luajit,
-    arguments: ['-b', '@INPUT@', '@OUTPUT@'],
-    output  : '@BASENAME@.h',
-)
+lang_bc_headers = []
+foreach lua_source : lang_sources
+    lang_bc_headers += custom_target(lua_source + '.h',
+        input: lua_source,
+        output: '@BASENAME@.h',
+        command: [luajit, '-b', '@INPUT@', '@OUTPUT@']
+    )
+endforeach
 
-lang_bc_headers = bc_generator.process(lang_sources)
+lua_module_install_dir = 'share/lua/5.1'
+
+install_data(lang_sources, install_dir: lua_module_install_dir + '/lang')
