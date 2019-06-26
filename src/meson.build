@@ -13,7 +13,7 @@ endif
 
 luajit_dep = dependency('luajit')
 
-liblang = static_library('liblang',
+liblang = static_library('ljlangtk',
     lang_sources + lang_bc_headers,
     include_directories: lang_headers_dir,
     c_args: lang_cflags,
@@ -28,4 +28,11 @@ luajit_x = executable('luajit-x',
     c_args: lang_cflags,
     link_with: liblang,
     install: true,
+)
+
+pkg.generate(liblang,
+    filebase : 'ljlangtk',
+    name : 'LuaJIT Lang Toolkit',
+    description : 'The LuaJIT Language Toolkit',
+    url : 'https://github.com/franko/luajit-lang-toolkit',
 )

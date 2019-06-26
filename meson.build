@@ -1,5 +1,7 @@
 project('luajit-lang-toolkit', 'c', version : '1.0', default_options : 'c_std=c99')
 
+pkg = import('pkgconfig')
+
 lang_headers_dir = include_directories('.')
 
 subdir('lang')
