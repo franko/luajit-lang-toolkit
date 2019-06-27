@@ -160,7 +160,8 @@ end
 
 function ExpressionRule:Table(node)
     local hash = { }
-    for i = 1, #node.keyvals do
+    local last = #node.keyvals
+    for i = 1, last do
         local kv = node.keyvals[i]
         local val = self:expr_emit(kv[1])
         local key = kv[2]
@@ -171,7 +172,11 @@ function ExpressionRule:Table(node)
                 hash[i] = format("[%s] = %s", self:expr_emit(key), val)
             end
         else
-            hash[i] = format("%s", val)
+            if i == last and kv[1].bracketed then
+                hash[i] = format("(%s)", val)
+            else
+                hash[i] = format("%s", val)
+            end
         end
     end
     local content = ""
