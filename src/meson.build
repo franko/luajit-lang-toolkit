@@ -15,7 +15,7 @@ luajit_dep = dependency('luajit')
 
 liblang = static_library('ljlangtk',
     lang_sources + lang_bc_headers,
-    include_directories: lang_headers_dir,
+    include_directories: bc_headers_dir,
     c_args: lang_cflags,
     dependencies: luajit_dep,
     install: true,
@@ -23,12 +23,20 @@ liblang = static_library('ljlangtk',
 
 luajit_x = executable('luajit-x',
     ['luajit-x.c'] + lang_bc_headers,
-    include_directories: lang_headers_dir,
+    include_directories: bc_headers_dir,
     dependencies: luajit_dep,
     c_args: lang_cflags,
     link_with: liblang,
     install: true,
 )
+
+liblang_dep = declare_dependency(
+    include_directories: include_directories('.'),
+    link_with: liblang,
+    dependencies: luajit_dep,
+)
+
+install_headers('language.h', 'language_loaders.h')
 
 pkg.generate(liblang,
     filebase : 'ljlangtk',

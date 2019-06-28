@@ -4,7 +4,7 @@ pkg = import('pkgconfig')
 
 bytecode_preload = get_option('preload')
 
-lang_headers_dir = include_directories('.')
+bc_headers_dir = include_directories('.')
 
 subdir('lang')
 subdir('src')
