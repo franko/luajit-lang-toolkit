@@ -943,6 +943,8 @@ local function locate_jump(self, name)
         return NO_JMP
     end
 end
+-- Emit a jump instruction, JMP or UCLO, to the given "name" location
+-- using 'basereg' register.
 function Proto.__index:scope_jump(name, basereg, need_uclo)
     local jump = locate_jump(self, name)
     return self:emit(need_uclo and BC.UCLO or BC.JMP, basereg, jump)
@@ -997,11 +999,18 @@ function Proto.__index:goto_label(label_name)
         return true, label
     end
 end
+-- Add information in the current scope about the loop, its exit location,
+-- save register. 'cont' should be the register for continue instruction
+-- but is no longer used.
 function Proto.__index:loop_register(exit, exit_reg, cont)
     self.scope.loop_exit = exit
     self.scope.loop_basereg = exit_reg
     self.scope.loop_cont = cont
 end
+
+-- Looks in current and outer scopes for the closer loop and returns:
+-- loop's base register, loop's continue register and if uclo is needed.
+-- The loop_cont value is not really used.
 function Proto.__index:current_loop(cont)
     local scope = self.scope
     local need_uclo = false
