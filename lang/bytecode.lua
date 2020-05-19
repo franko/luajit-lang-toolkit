@@ -999,33 +999,25 @@ function Proto.__index:goto_label(label_name)
         return true, label
     end
 end
--- Add information in the current scope about the loop, its exit location,
--- save register. 'cont' should be the register for continue instruction
--- but is no longer used.
-function Proto.__index:loop_register(exit, exit_reg, cont)
+-- Add information in the current scope about the loop, its exit location
+-- and save register.
+function Proto.__index:loop_register(exit, exit_reg)
     self.scope.loop_exit = exit
     self.scope.loop_basereg = exit_reg
-    self.scope.loop_cont = cont
 end
 
 -- Looks in current and outer scopes for the closer loop and returns:
--- loop's base register, loop's continue register and if uclo is needed.
--- The loop_cont value is not really used.
-function Proto.__index:current_loop(cont)
+-- loop's base register and if uclo is needed.
+function Proto.__index:current_loop()
     local scope = self.scope
     local need_uclo = false
     while scope do
         need_uclo = need_uclo or scope.need_uclo
-        if cont then
-            if scope.loop_cont then break end
-        else
-            if scope.loop_exit then break end
-        end
+        if scope.loop_exit then break end
         scope = scope.outer
     end
-    assert(scope, "no loop to " .. (cont and "continue" or "break"))
-    return scope.loop_basereg, cont and scope.loop_cont or scope.loop_exit,
-        need_uclo
+    assert(scope, "no loop to break")
+    return scope.loop_basereg, scope.loop_exit, need_uclo
 end
 function Proto.__index:global_uclo()
     local scope = self.scope
