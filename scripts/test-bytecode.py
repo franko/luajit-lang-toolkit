@@ -5,9 +5,15 @@ import subprocess
 import StringIO
 from glob import glob
 
+if len(sys.argv) != 2:
+    print("usage: %s <build-directory>" % sys.argv[0])
+    sys.exit(1)
+
+build_dir = sys.argv[1]
+
 test_dir = "tests"
 luajit_exec = "luajit"
-luajit_x = "./src/luajit-x"
+luajit_x = os.path.join(build_dir, "src/luajit-x")
 diff_exec = "diff"
 
 def lua_files(test_dir):
