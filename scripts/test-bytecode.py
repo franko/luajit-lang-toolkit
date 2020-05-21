@@ -16,6 +16,8 @@ luajit_exec = "luajit"
 luajit_x = os.path.join(build_dir, "src/luajit-x")
 diff_exec = "diff"
 
+windows_os = (os.name == 'nt')
+
 def lua_files(test_dir):
 	for dirpath, dirnames, filenames in os.walk(test_dir):
 		for filename in sorted(filenames):
@@ -62,6 +64,7 @@ def parse(bcfile, outfile):
 	for line in bcfile:
 		m = re.match(r'-- BYTECODE -- ', line)
 		if m:
+			if windows_os: line = line.replace('\r\n', '\n')
 			outfile.write(line)
 			normalize(proto_lines(bcfile), outfile)
 
@@ -108,6 +111,8 @@ def write_diff(a, b, a_name, b_name):
 	bf.close()
 
 	diff_output = subprocess.Popen([diff_exec, "-U", "4", fna, fnb], stdout=subprocess.PIPE).communicate()[0]
+	if windows_os:
+		diff_output = diff_output.replace('\r\n', '\n')
 	diff_file = open("tests/log/%s.%s.diff" % (a_name, b_name), "w")
 	diff_file.write(diff_output)
 	diff_file.close()
@@ -148,3 +153,4 @@ for dirpath, name in lua_files(test_dir):
 	msg_ext = "%s / %s" % (msg, source) if source and source != "luajit" else msg
 
 	print("%s %-24s%s" % (led, name, msg_ext))
+	sys.stdout.flush()

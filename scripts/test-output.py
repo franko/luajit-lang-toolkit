@@ -61,3 +61,4 @@ for dirpath, dirnames, filenames in os.walk(test_dir):
                 log.close()
 
             print("%s %-24s %s" % (led, test_name, msg))
+            sys.stdout.flush()
