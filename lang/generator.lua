@@ -741,31 +741,31 @@ function StatementRule:AssignmentExpression(node)
     self.ctx.freereg = free
 end
 function StatementRule:WhileStatement(node)
-    local register_save = self.ctx.freereg
+    local base_register = self.ctx.freereg
     local loop_begin_location, loop_exit_location = genid(), genid()
-    self:loop_enter(loop_exit_location, register_save)
+    self:loop_enter(loop_exit_location, base_register)
     self.ctx:here(loop_begin_location)
-    self:test_emit(node.test, loop_exit_location, register_save)
+    self:test_emit(node.test, loop_exit_location, base_register)
     self.ctx:loop(loop_exit_location)
     self:block_emit(node.body)
-    self.ctx:scope_jump(loop_begin_location, register_save, self.ctx.scope.need_uclo)
+    self.ctx:scope_jump(loop_begin_location, base_register, self.ctx.scope.need_uclo)
     self.ctx:here(loop_exit_location)
     self.ctx:fscope_end()
     self.ctx:leave()
     if node.lastline then self.ctx:line(node.lastline) end
-    self.ctx.freereg = register_save
+    self.ctx.freereg = base_register
 end
 function StatementRule:RepeatStatement(node)
-    local free = self.ctx.freereg
-    local loop, exit = genid(), genid()
-    self:loop_enter(exit, free)
-    self.ctx:here(loop)
-    self.ctx:loop(exit)
+    local base_register = self.ctx.freereg
+    local loop_begin_location, loop_exit_location = genid(), genid()
+    self:loop_enter(loop_exit_location, base_register)
+    self.ctx:here(loop_begin_location)
+    self.ctx:loop(loop_exit_location)
     self:block_emit(node.body)
-    self:test_emit(node.test, loop, free)
-    self.ctx:here(exit)
+    self:test_emit(node.test, loop_begin_location, base_register)
+    self.ctx:here(loop_exit_location)
     self:loop_leave(node.lastline)
-    self.ctx.freereg = free
+    self.ctx.freereg = base_register
 end
 function StatementRule:BreakStatement()
     local base, exit, need_uclo = self.ctx:current_loop()
