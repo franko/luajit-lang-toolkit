@@ -741,29 +741,46 @@ function StatementRule:AssignmentExpression(node)
     self.ctx.freereg = free
 end
 function StatementRule:WhileStatement(node)
-    local free = self.ctx.freereg
-    local loop, exit = genid(), genid()
-    self:loop_enter(exit, free)
-    self.ctx:here(loop)
-    self:test_emit(node.test, exit, free)
-    self.ctx:loop(exit)
+    local base_register = self.ctx.freereg
+    local loop_begin_location, loop_exit_location = genid(), genid()
+    self:loop_enter(loop_exit_location, base_register)
+    self.ctx:here(loop_begin_location)
+    self:test_emit(node.test, loop_exit_location, base_register)
+    self.ctx:loop(loop_exit_location)
     self:block_emit(node.body)
-    self.ctx:jump(loop, free)
-    self.ctx:here(exit)
-    self:loop_leave(node.lastline)
-    self.ctx.freereg = free
+    self.ctx:scope_jump(loop_begin_location, base_register, self.ctx.scope.need_uclo)
+    self.ctx:here(loop_exit_location)
+    self.ctx:fscope_end()
+    self.ctx:leave()
+    if node.lastline then self.ctx:line(node.lastline) end
+    self.ctx.freereg = base_register
 end
 function StatementRule:RepeatStatement(node)
-    local free = self.ctx.freereg
-    local loop, exit = genid(), genid()
-    self:loop_enter(exit, free)
-    self.ctx:here(loop)
-    self.ctx:loop(exit)
+    local base_register = self.ctx.freereg
+    local loop_begin_location, loop_exit_location = genid(), genid()
+    local loop_uclo_location = genid()
+    self:loop_enter(loop_exit_location, base_register)
+    self.ctx:here(loop_begin_location)
+    self.ctx:loop(loop_exit_location)
     self:block_emit(node.body)
-    self:test_emit(node.test, loop, free)
-    self.ctx:here(exit)
-    self:loop_leave(node.lastline)
-    self.ctx.freereg = free
+    local need_body_uclo = self.ctx.scope.need_uclo
+    if need_body_uclo then
+        self:test_emit(node.test, loop_uclo_location, self.ctx.freereg)
+    else
+        self:test_emit(node.test, loop_begin_location, base_register)
+    end
+    if need_body_uclo then
+        self.ctx:scope_jump(loop_exit_location, base_register, true)
+        self.ctx:here(loop_uclo_location)
+        self.ctx:scope_jump(loop_begin_location, base_register, true)
+    else
+        self.ctx:close_block(self.ctx.scope.basereg)
+    end
+    self.ctx:here(loop_exit_location)
+    self.ctx:fscope_end()
+    self.ctx:leave()
+    if node.lastline then self.ctx:line(node.lastline) end
+    self.ctx.freereg = base_register
 end
 function StatementRule:BreakStatement()
     local base, exit, need_uclo = self.ctx:current_loop()

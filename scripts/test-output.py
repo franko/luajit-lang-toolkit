@@ -3,9 +3,15 @@ import os
 import re
 import subprocess
 
+if len(sys.argv) != 2:
+    print("usage: %s <build-directory>" % sys.argv[0])
+    sys.exit(1)
+
+build_dir = sys.argv[1]
+
 test_dir = "tests"
 luajit_exec = "luajit"
-luajit_x = "./src/luajit-x"
+luajit_x = os.path.join(build_dir, "src/luajit-x")
 
 if not os.path.isdir("tests/log"):
 	try:
@@ -55,3 +61,4 @@ for dirpath, dirnames, filenames in os.walk(test_dir):
                 log.close()
 
             print("%s %-24s %s" % (led, test_name, msg))
+            sys.stdout.flush()
