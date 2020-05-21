@@ -1,5 +1,5 @@
 --
--- luacode-generator.lua
+-- luacode_generator.lua
 --
 -- This file is part of the LuaJIT Language Toolkit.
 --

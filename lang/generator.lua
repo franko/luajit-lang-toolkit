@@ -10,8 +10,8 @@
 --
 
 local bc = require('lang.bytecode')
-local const_eval = require("lang.ast-const-eval")
-local boolean_const_eval = require("lang.ast-boolean-const-eval")
+local const_eval = require("lang.ast_const_eval")
+local boolean_const_eval = require("lang.ast_boolean_const_eval")
 
 local ID = 0
 local function genid()

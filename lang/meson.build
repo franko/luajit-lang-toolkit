@@ -1,21 +1,35 @@
-lang_sources = ['ast-boolean-const-eval.lua', 'ast-const-eval.lua', 'bcread.lua', 'bcsave.lua', 'bytecode.lua', 'compile.lua', 'generator.lua', 'lexer.lua', 'id-generator.lua', 'lua-ast.lua', 'operator.lua', 'parser.lua', 'reader.lua']
+lang_sources = [
+    'ast_boolean_const_eval.lua',
+    'ast_const_eval.lua',
+    'bcread.lua',
+    'bcsave.lua',
+    'bytecode.lua',
+    'compile.lua',
+    'generator.lua',
+    'lexer.lua',
+    'id_generator.lua',
+    'lua_ast.lua',
+    'operator.lua',
+    'parser.lua',
+    'reader.lua',
+]
 
 luajit = find_program('luajit')
 
-lang_bc_headers = []
-
 if bytecode_preload
+    lang_bc_sources = []
     foreach lua_source : lang_sources
-        lang_bc_headers += custom_target(lua_source + '.h',
+        source_basename = lua_source.split('.')[0]
+        module_name = 'lang_' + source_basename.underscorify()
+        message(module_name + ' ' + source_basename + '.c')
+        lang_bc_sources += custom_target(source_basename + '.c',
             input: lua_source,
-            output: '@BASENAME@.h',
-            command: [luajit, '-b', '@INPUT@', '@OUTPUT@']
+            output: '@BASENAME@.c',
+            command: [luajit, '-b', '-n', module_name, '@INPUT@', '@OUTPUT@']
         )
     endforeach
-endif
-
-lua_module_install_dir = 'share/lua/5.1'
-
-if not bytecode_preload
+    lang_bc_lib = static_library('langbc', lang_bc_sources)
+else
+    lua_module_install_dir = 'share/lua/5.1'
     install_data(lang_sources, install_dir: lua_module_install_dir + '/lang')
 endif

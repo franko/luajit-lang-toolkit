@@ -9,10 +9,6 @@
 #include "lualib.h"
 #include "language.h"
 
-#ifdef BC_PRELOAD
-#include "language_bcloader.h"
-#endif
-
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 

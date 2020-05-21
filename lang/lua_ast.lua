@@ -1,4 +1,4 @@
-local id_generator = require("lang.id-generator")
+local id_generator = require("lang.id_generator")
 
 local function build(kind, node)
     node.kind = kind

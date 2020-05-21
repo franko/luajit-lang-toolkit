@@ -7,26 +7,29 @@ endif
 lang_sources = ['language.c', 'language_loaders.c']
 
 if bytecode_preload
-    lang_sources += 'language_bcloader.c'
-    lang_cflags += '-DBC_PRELOAD'
+    lang_whole_libs = [lang_bc_lib]
+    lang_export_dynamic = true
+else
+    lang_whole_libs = []
+    lang_export_dynamic = false
 endif
 
 luajit_dep = dependency('luajit')
 
 liblang = static_library('ljlangtk',
-    lang_sources + lang_bc_headers,
-    include_directories: bc_headers_dir,
+    lang_sources,
     c_args: lang_cflags,
     dependencies: luajit_dep,
     install: true,
 )
 
 luajit_x = executable('luajit-x',
-    ['luajit-x.c'] + lang_bc_headers,
-    include_directories: bc_headers_dir,
+    'luajit-x.c',
     dependencies: luajit_dep,
     c_args: lang_cflags,
     link_with: liblang,
+    link_whole: lang_whole_libs,
+    export_dynamic: lang_export_dynamic,
     install: true,
 )
 
