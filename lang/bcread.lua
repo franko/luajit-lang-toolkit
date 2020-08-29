@@ -441,8 +441,8 @@ end
 
 local function uv_decode(uv)
     if band(uv, 0x8000) ~= 0 then
-        local imm = (band(uv, 0x4000) ~= 0)
-        return band(uv, 0x3fff), true, imm
+        local imm = (band(uv, 0x40) ~= 0)
+        return band(uv, 0xff), true, imm
     else
         return uv, false, false
     end
